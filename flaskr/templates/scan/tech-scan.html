@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<h1>{% block title %}Scanning{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+<!-- Form nhập URL để quét -->
+<form id="scan-form">
+    <label for="url">URL</label>
+    <input id="url" name="url" required>
+    <input id="start-button" type="submit" value="Scan">
+</form>
+
+<!-- Hiển thị trạng thái đang quét -->
+<div class="loading" id="loading" style="display: none;">
+    <div id="loading-spinner"></div>
+    <p>Đang quét, vui lòng đợi...</p>
+</div>
+
+<!-- Vùng hiển thị kết quả -->
+<div id="scan-results"></div>
+
+<script>
+document.getElementById("scan-form").addEventListener("submit", function(event) {
+    event.preventDefault(); // Ngăn form reload trang
+
+    let urlInput = document.getElementById("url").value;
+    let loadingScreen = document.getElementById("loading");
+    let resultsContainer = document.getElementById("scan-results");
+
+    if (!urlInput) {
+        alert("Vui lòng nhập URL hợp lệ!");
+        return;
+    }
+
+    loadingScreen.style.display = "flex"; // Hiện loading
+
+    fetch("/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Requested-With": "XMLHttpRequest"  // Để Flask nhận biết đây là AJAX
+        },
+        body: new URLSearchParams({ "url": urlInput })
+    })
+    .then(response => response.text())  // Nhận HTML từ Flask
+    .then(html => {
+        loadingScreen.style.display = "none";
+        resultsContainer.innerHTML = html; // Hiển thị kết quả quét
+    })
+    .catch(error => {
+        console.error("Lỗi:", error);
+        loadingScreen.style.display = "none";
+    });
+});
+function toggleCheckbox(input) {
+    let checkbox = input.closest("tr")?.querySelector(".tech-check");
+    if (checkbox) {
+        if (input.value.trim() !== "" && input.value.trim() !== "N/A") {
+            checkbox.disabled = false;  
+            checkbox.checked = true;    
+        } else {
+            checkbox.disabled = true;  
+            checkbox.checked = false;   
+        }
+    }
+}
+
+// Khi trang load, kiểm tra tất cả các input
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("input[name='version']").forEach(toggleCheckbox);
+});
+
+// Dùng MutationObserver để tự động kiểm tra khi nội dung `#scan-results` thay đổi
+const observer = new MutationObserver(() => {
+    document.querySelectorAll("input[name='version']").forEach(toggleCheckbox);
+});
+observer.observe(document.getElementById("scan-results"), { childList: true, subtree: true });
+</script>
+
+{% endblock %}
