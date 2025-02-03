@@ -1,40 +1,43 @@
 {% if results %}
-    <h2>Kết quả quét:</h2>
-    <table border="1">
-        <thead>
-        <tr>
-            <th>URL</th>
-            <th>Công nghệ</th>
-            <th>Phiên bản</th>
-            <th>Chọn</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for url, technologies in results.items() %}
-        {% if technologies %}
-        {% for tech, details in technologies.items() %}
-        <tr>
-            {% if loop.first %}
-            <td rowspan="{{ technologies|length }}">{{ url }}</td>
-            {% endif %}
-            <td name="tech">{{ tech }}</td>
-            <td>
-                <input name="version" oninput="toggleCheckbox(this)" type="text"
-                    value="{{ details.get('version', 'N/A') }}"/>
-            </td>
-            <td>
-                <input disabled="true" class="tech-check" name="" type="checkbox">
-            </td>
-        </tr>
-        {% endfor %}
-        {% else %}
-        <tr>
-            <td>{{ url }}</td>
-            <td colspan="4">Không tìm thấy công nghệ nào</td>
-        </tr>
+<h2>Kết quả quét:</h2>
+<span>Trạng thái: </span>
+<span id="url-status">{{ url_status }}</span>
+<table border="1">
+    <thead>
+    <tr>
+        <th>URL</th>
+        <th>Công nghệ</th>
+        <th>Phiên bản</th>
+        <th>Chọn</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for url, technologies in results.items() %}
+    {% if technologies %}
+    {% for tech, details in technologies.items() %}
+    <tr>
+        {% if loop.first %}
+        <td rowspan="{{ technologies|length }}">{{ url }}</td>
         {% endif %}
-        {% endfor %}
-        </tbody>
-    </table>
-    <button>Quét</button>
+        <td name="tech">{{ tech }}</td>
+        <td>
+            <input name="version" oninput="toggleCheckbox(this)" type="text"
+                value="{{ details.get('version', 'N/A') }}"/>
+        </td>
+        <td>
+            <input disabled="true" class="tech-check" name="" type="checkbox">
+        </td>
+    </tr>
+    {% endfor %}
+    {% else %}
+    <tr>
+        <td>{{ url }}</td>
+        <td colspan="4">Không tìm thấy công nghệ nào</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+</table>
+<button onclick="stopCheckingStatus()">Stop Checking Status</button>
+<button>Quét</button>
 {% endif %}

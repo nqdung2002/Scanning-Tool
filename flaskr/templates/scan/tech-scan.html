@@ -22,61 +22,103 @@
 <div id="scan-results"></div>
 
 <script>
-document.getElementById("scan-form").addEventListener("submit", function(event) {
-    event.preventDefault(); // Ngăn form reload trang
+    checkStatusInterval = null; // Biến lưu interval để kiểm tra trạng thái
 
-    let urlInput = document.getElementById("url").value;
-    let loadingScreen = document.getElementById("loading");
-    let resultsContainer = document.getElementById("scan-results");
+    // Xử lý form submit
+    document.getElementById("scan-form").addEventListener("submit", function(event) {
+        event.preventDefault(); // Ngăn form reload trang
 
-    if (!urlInput) {
-        alert("Vui lòng nhập URL hợp lệ!");
-        return;
-    }
+        let urlInput = document.getElementById("url").value;
+        let loadingScreen = document.getElementById("loading");
+        let resultsContainer = document.getElementById("scan-results");
 
-    loadingScreen.style.display = "flex"; // Hiện loading
+        if (!urlInput) {
+            alert("Vui lòng nhập URL hợp lệ!");
+            return;
+        }
 
-    fetch("/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-Requested-With": "XMLHttpRequest"  // Để Flask nhận biết đây là AJAX
-        },
-        body: new URLSearchParams({ "url": urlInput })
-    })
-    .then(response => response.text())  // Nhận HTML từ Flask
-    .then(html => {
-        loadingScreen.style.display = "none";
-        resultsContainer.innerHTML = html; // Hiển thị kết quả quét
-    })
-    .catch(error => {
-        console.error("Lỗi:", error);
-        loadingScreen.style.display = "none";
+        loadingScreen.style.display = "flex"; // Hiện loading
+
+        fetch("/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"  // Để Flask nhận biết đây là AJAX
+            },
+            body: new URLSearchParams({ "url": urlInput })
+        })
+        .then(response => response.text())  // Nhận HTML từ Flask
+        .then(html => {
+            loadingScreen.style.display = "none";
+            resultsContainer.innerHTML = html; // Hiển thị kết quả quét
+            
+            // Dừng interval cũ nếu có và bắt đầu interval mới
+            if (checkStatusInterval !== null) {
+                clearInterval(checkStatusInterval);
+                chêckStatusInterval = null;
+            }
+            checkStatusInterval = setInterval(fetchStatus, 10000); 
+        })
+        .catch(error => {
+            console.error("Lỗi:", error);
+            loadingScreen.style.display = "none";
+        });
     });
-});
-function toggleCheckbox(input) {
-    let checkbox = input.closest("tr")?.querySelector(".tech-check");
-    if (checkbox) {
-        if (input.value.trim() !== "" && input.value.trim() !== "N/A") {
-            checkbox.disabled = false;  
-            checkbox.checked = true;    
-        } else {
-            checkbox.disabled = true;  
-            checkbox.checked = false;   
+    
+    // Hàm xử lý khi input thay đổi
+    function toggleCheckbox(input) {
+        let checkbox = input.closest("tr")?.querySelector(".tech-check");
+        if (checkbox) {
+            if (input.value.trim() !== "" && input.value.trim() !== "N/A") {
+                checkbox.disabled = false;  
+                checkbox.checked = true;    
+            } else {
+                checkbox.disabled = true;  
+                checkbox.checked = false;   
+            }
         }
     }
-}
 
-// Khi trang load, kiểm tra tất cả các input
-document.addEventListener("DOMContentLoaded", function() {
-    document.querySelectorAll("input[name='version']").forEach(toggleCheckbox);
-});
+    // Hàm lấy trạng thái từ server
+    function fetchStatus() {
+        fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                console.log("Status data:", data.url_status); // Log giá trị của data.url_status
+                document.getElementById('url-status').innerText = data.url_status;
+            })
+            .catch(error => console.error('Error:', error));
+    }
 
-// Dùng MutationObserver để tự động kiểm tra khi nội dung `#scan-results` thay đổi
-const observer = new MutationObserver(() => {
-    document.querySelectorAll("input[name='version']").forEach(toggleCheckbox);
-});
-observer.observe(document.getElementById("scan-results"), { childList: true, subtree: true });
+    // Hàm dừng kiểm tra trạng thái
+    function stopCheckingStatus() {
+        fetch('/stop-status', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('url-status').innerText = "Đã dừng kiểm tra trạng thái";
+                if (data.success) {
+                    if (checkStatusInterval !== null) {
+                        clearInterval(checkStatusInterval);
+                        checkStatusInterval = null;
+                    }
+                    alert('Stopped checking status.');
+                } else {
+                    alert('Failed to stop checking status.');
+                }
+            })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // Khi trang load, kiểm tra tất cả các input
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll("input[name='version']").forEach(toggleCheckbox);
+    });
+
+    // Dùng MutationObserver để tự động kiểm tra khi nội dung #scan-results thay đổi
+    const observer = new MutationObserver(() => {
+        document.querySelectorAll("input[name='version']").forEach(toggleCheckbox);
+    });
+    observer.observe(document.getElementById("scan-results"), { childList: true, subtree: true });
 </script>
 
 {% endblock %}
