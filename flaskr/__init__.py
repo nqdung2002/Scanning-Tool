@@ -11,6 +11,7 @@ def create_app(test_config=None):
         SECRET_KEY='dev',
         DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
     )
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
 
     if test_config is None:
         # tải cấu hình instance, nếu có, khi không ghi đè cấu hình mặc định

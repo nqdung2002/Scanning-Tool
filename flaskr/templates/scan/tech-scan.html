@@ -1,35 +1,37 @@
 {% extends 'base.html' %}
 
 {% block header %}
-<h1>{% block title %}Scanning{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
-<!-- Form nhập URL để quét -->
-<form id="scan-form">
-    <label for="url">URL</label>
-    <input id="url" name="url" required>
-    <input id="start-button" type="submit" value="Scan">
-</form>
+<div class="container d-flex flex-column justify-content-center align-items-center">
+    <!-- Form nhập URL để quét -->
+    <form id="scan-form" class="form-inline p-1">
+        <label for="url">URL</label>
+        <input id="url" name="url" required>
+        <input id="start-button" type="submit" value="Scan">
+    </form>
 
-<!-- Hiển thị trạng thái đang quét -->
-<div class="loading" id="loading" style="display: none;">
-    <div id="loading-spinner"></div>
-    <p>Đang quét, vui lòng đợi...</p>
+    <!-- Hiển thị trạng thái đang quét -->
+    <div id="loading" style="display: none;" class="p-1">
+        <div class="spinner-grow" role="status"></div>
+        <span>Đang quét...</span>
+    </div>
+
+    <!-- Vùng hiển thị kết quả -->
+    <div id="scan-results" class="p-1"></div>
 </div>
 
-<!-- Vùng hiển thị kết quả -->
-<div id="scan-results"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
 <script>
-    checkStatusInterval = null; // Biến lưu interval để kiểm tra trạng thái
     var socket = io(); // Khởi tạo socket.io
 
     // Lắng nghe sự kiện 'status_update'
     socket.on('status_update', function(data) {
         console.log('Cập nhật status nhận được:', data);
         document.getElementById('url-status').innerText = data.url_status;
+        document.getElementById('last-success-time').innerText = data.last_success_time;
     });
 
     // Lắng nghe sự kiện 'error'
@@ -86,32 +88,12 @@
         }
     }
 
-    // Hàm lấy trạng thái từ server
-    function fetchStatus() {
-        fetch('/status')
-            .then(response => response.json())
-            .then(data => {
-                console.log("Status data:", data.url_status); // Log giá trị của data.url_status
-                document.getElementById('url-status').innerText = data.url_status;
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
     // Hàm dừng kiểm tra trạng thái
     function stopCheckingStatus() {
         fetch('/stop-status', { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 document.getElementById('url-status').innerText = "Đã dừng kiểm tra trạng thái";
-                if (data.success) {
-                    if (checkStatusInterval !== null) {
-                        clearInterval(checkStatusInterval);
-                        checkStatusInterval = null;
-                    }
-                    alert('Stopped checking status.');
-                } else {
-                    alert('Failed to stop checking status.');
-                }
             })
         .catch(error => console.error('Error:', error));
     }
