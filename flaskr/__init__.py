@@ -1,10 +1,11 @@
 import os
+from flask_socketio import SocketIO
+from flask import Flask
 
-from flask import Flask, render_template
-
+socketio = SocketIO()
 
 def create_app(test_config=None):
-    # create and configure the app
+    # Tạo và cấu hình ứng dụng
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
         SECRET_KEY='dev',
@@ -12,13 +13,13 @@ def create_app(test_config=None):
     )
 
     if test_config is None:
-        # load the instance config, if it exists, when not testing
+        # tải cấu hình instance, nếu có, khi không ghi đè cấu hình mặc định
         app.config.from_pyfile('config.py', silent=True)
     else:
-        # load the test config if passed in
+        # tải cấu hình test nếu được truyền vào
         app.config.from_mapping(test_config)
 
-    # ensure the instance folder exists
+    # đảm bảo thư mục instance tồn tại
     try:
         os.makedirs(app.instance_path)
     except OSError:
@@ -31,9 +32,7 @@ def create_app(test_config=None):
     app.add_url_rule('/', endpoint='scan')
     db.init_app(app)
 
-    # a simple page that says hello
-    @app.route('/auth/')
-    def hello():
-        return render_template('auth/login.html')
+    # Khởi tạo socketio
+    socketio.init_app(app)
 
     return app

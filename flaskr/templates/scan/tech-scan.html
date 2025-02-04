@@ -21,8 +21,22 @@
 <!-- Vùng hiển thị kết quả -->
 <div id="scan-results"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
 <script>
     checkStatusInterval = null; // Biến lưu interval để kiểm tra trạng thái
+    var socket = io(); // Khởi tạo socket.io
+
+    // Lắng nghe sự kiện 'status_update'
+    socket.on('status_update', function(data) {
+        console.log('Cập nhật status nhận được:', data);
+        document.getElementById('url-status').innerText = data.url_status;
+    });
+
+    // Lắng nghe sự kiện 'error'
+    socket.on('error', function(data) {
+        console.error('Lỗi nhận được:', data.message);
+        alert(data.message);  // Hiển thị thông báo lỗi
+    });
 
     // Xử lý form submit
     document.getElementById("scan-form").addEventListener("submit", function(event) {
@@ -51,13 +65,6 @@
         .then(html => {
             loadingScreen.style.display = "none";
             resultsContainer.innerHTML = html; // Hiển thị kết quả quét
-            
-            // Dừng interval cũ nếu có và bắt đầu interval mới
-            if (checkStatusInterval !== null) {
-                clearInterval(checkStatusInterval);
-                chêckStatusInterval = null;
-            }
-            checkStatusInterval = setInterval(fetchStatus, 10000); 
         })
         .catch(error => {
             console.error("Lỗi:", error);

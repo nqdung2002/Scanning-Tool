@@ -1,24 +1,3 @@
 {
-    "https://example.com/": {
-        "HTTP/2": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Miscellaneous"
-            ],
-            "groups": [
-                "Other"
-            ]
-        },
-        "HTTP/3": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Miscellaneous"
-            ],
-            "groups": [
-                "Other"
-            ]
-        }
-    }
+    "http://127.0.0.1:3000/?code=200": {}
 }
