@@ -8,6 +8,7 @@ from flask_socketio import emit
 from datetime import datetime
 from flaskr.auth import login_required
 from flask import Blueprint, flash, render_template, request, jsonify
+from packaging import version
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  
@@ -17,7 +18,7 @@ url = None
 current_thread = None
 stop_event = threading.Event()
 url_status = None
-last_success_time = None
+last_success_time = "Chưa có kết quả"
 
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
@@ -99,4 +100,15 @@ def check_url_status(url, stop_event):
 
 @bp.route('/vuln', methods=['GET', 'POST'])
 def vuln_scan():
-    return render_template('scan/vuln-scan.html')
+    api_key = "4fc5fc94-2fc4-42e2-892b-15bca07d5593"
+    selected = request.json
+    for tech_info in selected:
+        tech = tech_info['tech']
+        version = tech_info['version']
+    try:
+        response = requests.get(
+            f"https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe:2.3:o:*:{tech}::*:*:*:*:*:*:*",
+            headers={"api_key": api_key})
+    except requests.RequestException as e:
+        flash(f"Lỗi khi tìm lỗ hổng trên cơ sở dữ liệu: {e}")
+    return render_template('scan/vuln-scan.html', tech=tech, version=version)

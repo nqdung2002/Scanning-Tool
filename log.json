@@ -1,23 +1,33 @@
 {
-    "https://example.com/": {
-        "HTTP/2": {
-            "version": "",
+    "http://testasp.vulnweb.com/": {
+        "IIS": {
+            "version": "8.5",
             "confidence": 100,
             "categories": [
-                "Miscellaneous"
+                "Web servers"
             ],
             "groups": [
-                "Other"
+                "Servers"
             ]
         },
-        "HTTP/3": {
+        "Microsoft ASP.NET": {
             "version": "",
             "confidence": 100,
             "categories": [
-                "Miscellaneous"
+                "Web frameworks"
             ],
             "groups": [
-                "Other"
+                "Web development"
+            ]
+        },
+        "DreamWeaver": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "Editors"
+            ],
+            "groups": [
+                "Web development"
             ]
         }
     }

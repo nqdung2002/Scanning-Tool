@@ -73,6 +73,34 @@
             loadingScreen.style.display = "none";
         });
     });
+
+    // Hàm xử lý khi submit vuln scan
+    function submitVulnScanForm() {
+        let tableContainer = document.getElementById("table-content");
+        let resultsContainer = document.getElementById("vuln-scan-result");
+
+        fetch("/vuln", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest"  // Để Flask nhận biết đây là AJAX
+            },
+            body: JSON.stringify(Array.from(document.querySelectorAll(".tech-check:checked")).map(checkbox => {
+                let row = checkbox.closest("tr");
+                let tech = row.querySelector("[name='tech']").innerText;
+                let version = row.querySelector("[name='version']").value;
+                return { tech, version };
+            }))
+        })
+        .then(response => response.text())
+        .then(html => {
+            tableContainer.style.display = "none"; // Ẩn bảng công nghệ
+            resultsContainer.style.display = "block"; // Hiển thị kết quả kiểm tra lỗ hổng
+            resultsContainer.innerHTML = html; // Hiển thị kết quả kiểm tra lỗ hổng
+        })
+        .catch(error => console.error("Lỗi:", error));
+    }
+
     
     // Hàm xử lý khi input thay đổi
     function toggleCheckbox(input) {
@@ -80,10 +108,8 @@
         if (checkbox) {
             if (input.value.trim() !== "" && input.value.trim() !== "N/A") {
                 checkbox.disabled = false;  
-                checkbox.checked = true;    
             } else {
                 checkbox.disabled = true;  
-                checkbox.checked = false;   
             }
         }
     }
@@ -96,6 +122,16 @@
                 document.getElementById('url-status').innerText = "Đã dừng kiểm tra trạng thái";
             })
         .catch(error => console.error('Error:', error));
+    }
+
+    // Hàm chọn tất cả checkbox
+    function selectAllCheckbox() {
+        let checkboxes = document.querySelectorAll(".tech-check:enabled");
+        let selectAll = document.getElementById("select-all");
+
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll.checked;
+        });
     }
 
     // Khi trang load, kiểm tra tất cả các input

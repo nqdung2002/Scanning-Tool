@@ -1,17 +1,18 @@
 import os
+from flaskr.config.config import Config
 from flask_socketio import SocketIO
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 socketio = SocketIO()
+db = SQLAlchemy()
+migrate = Migrate()
 
 def create_app(test_config=None):
     # Tạo và cấu hình ứng dụng
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_mapping(
-        SECRET_KEY='dev',
-        DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
-    )
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.config.from_object(Config)
 
     if test_config is None:
         # tải cấu hình instance, nếu có, khi không ghi đè cấu hình mặc định
@@ -26,14 +27,21 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    from . import db, auth, blog, scan
+    from . import auth, blog, scan
     app.register_blueprint(auth.bp)
     app.register_blueprint(blog.bp)
     app.register_blueprint(scan.bp)
-    app.add_url_rule('/', endpoint='scan')
+    app.add_url_rule('/', endpoint='scan')\
+    
     db.init_app(app)
+    migrate.init_app(app, db)    
+    with app.app_context():
+        db.create_all()
 
     # Khởi tạo socketio
     socketio.init_app(app)
+
+    # In ra giá trị của SQLALCHEMY_DATABASE_URI để kiểm tra kết nối
+    print(f"Connected to database: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     return app

@@ -8,37 +8,52 @@
     <span>Thời gian quét thành công lần cuối: </span>
     <span id="last-success-time">{{ last_success_time }}</span>
 </div>
-<table>
-    <thead>
-    <tr>
-        <th>Công nghệ</th>
-        <th>Phiên bản</th>
-        <th>Chọn</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for url, technologies in results.items() %}
-    {% if technologies %}
-    {% for tech, details in technologies.items() %}
-    <tr>
-        <td name="tech">{{ tech }}</td>
-        <td>
-            <input name="version" oninput="toggleCheckbox(this)" type="text"
-                value="{{ details.get('version', 'N/A') }}"/>
-        </td>
-        <td>
-            <input disabled="true" class="tech-check" name="" type="checkbox">
-        </td>
-    </tr>
-    {% endfor %}
-    {% else %}
-    <tr>
-        <td colspan="4">Không tìm thấy công nghệ nào</td>
-    </tr>
-    {% endif %}
-    {% endfor %}
-    </tbody>
-</table>
-<button onclick="stopCheckingStatus()">Stop Checking Status</button>
-<button>Quét</button>
+
+<div id="table-content">
+    <!-- Gói tất cả trong 1 form -->
+    <form id="vuln-scan-form"></form>
+        <table>
+            <thead>
+                <tr>
+                    <th>Công nghệ</th>
+                    <th>Phiên bản</th>
+                    <th><input type="checkbox" id="select-all" onchange="selectAllCheckbox()"></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for url, technologies in results.items() %}
+                {% if technologies %}
+                    {% for tech, details in technologies.items() %}
+                    <tr>
+                        <td name="tech">
+                            <input name="tech" type="text" value="{{ tech }}"/>
+                        </td>
+                        <td>
+                            <input name="version" oninput="toggleCheckbox(this)" type="text"
+                                value="{{ details.get('version', 'N/A') }}"/>
+                        </td>
+                        <td>
+                            <input disabled="true" class="tech-check" name="" type="checkbox">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4">Không tìm thấy công nghệ nào</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Nút dừng check trạng thái (chỉ gọi hàm JS, không submit form) -->
+        <button type="button" onclick="stopCheckingStatus()">Stop Checking Status</button>
+        
+        <!-- Nút submit form để quét -->
+        <button type="button" id="vuln-scan" onclick="submitVulnScanForm()">Quét</button>
+
+    </form>
+</div>
+
+<div id="vuln-scan-result" style="display: none;"></div>
 {% endif %}
