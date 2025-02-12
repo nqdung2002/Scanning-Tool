@@ -75,11 +75,11 @@
     });
 
     // Hàm xử lý khi submit vuln scan
-    function submitVulnScanForm() {
+    function submitTechScanForm() {
         let tableContainer = document.getElementById("table-content");
         let resultsContainer = document.getElementById("vuln-scan-result");
 
-        fetch("/vuln", {
+        fetch("/cpe-check", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -87,7 +87,7 @@
             },
             body: JSON.stringify(Array.from(document.querySelectorAll(".tech-check:checked")).map(checkbox => {
                 let row = checkbox.closest("tr");
-                let tech = row.querySelector("[name='tech']").innerText;
+                let tech = row.querySelector("input[name='tech']").value;
                 let version = row.querySelector("[name='version']").value;
                 return { tech, version };
             }))
@@ -109,7 +109,7 @@
             if (input.value.trim() !== "" && input.value.trim() !== "N/A") {
                 checkbox.disabled = false;  
             } else {
-                checkbox.disabled = true;  
+                checkbox.disabled = true;
             }
         }
     }

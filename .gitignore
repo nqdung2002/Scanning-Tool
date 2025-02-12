@@ -1,5 +1,2 @@
-src/nvd_cve_data/
-/whoosh_cpe_index_custom
-cpe.json
-cpe_test.json
-/whoosh_cpe_index_keepdot
+/src
+/test
