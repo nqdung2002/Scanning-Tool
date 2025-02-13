@@ -14,13 +14,9 @@ from whoosh.analysis import RegexTokenizer, LowercaseFilter
 from whoosh import scoring
 from whoosh import highlight
 
-"""
-test
-"""
-# CPE_JSON_FILE = "../../test/cpe_test.json"
-# INDEX_DIR = "../../test/cpe_test"
-CPE_JSON_FILE = "../../src/nvd_cpe_data/cpe.json"
-INDEX_DIR = "../../src/nvd_cpe_data/whoosh_indexing"
+# Đường dẫn đến thư mục chứa data
+CPE_JSON_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src/nvd_cpe_data/cpe.json"))
+INDEX_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src/nvd_cpe_data/whoosh_indexing"))
 CPE_PATTERN = re.compile(
     r"^cpe:2\.3:(?P<part>[aho]):(?P<vendor>[^:]*):(?P<product>[^:]*):(?P<version>[^:]*):(?P<update>[^:]*):(?P<edition>[^:]*):(?P<language>[^:]*):(?P<sw_edition>[^:]*):(?P<target_sw>[^:]*):(?P<target_hw>[^:]*):(?P<other>[^:]*)$"
 )
@@ -32,8 +28,6 @@ my_analyzer = RegexTokenizer(r"[^ \\\/\t\r\n\-_:]+") | LowercaseFilter()
 schema = Schema(
     cpe_id = ID(stored=True),
     vendor_product = TEXT(stored=True, analyzer=my_analyzer),
-    # vendor = TEXT(stored=True, analyzer=my_analyzer),
-    # product = TEXT(stored=True, analyzer=my_analyzer),
     versions = TEXT(stored=True, analyzer=my_analyzer),
     cpe = TEXT(stored=True)
 )
@@ -73,23 +67,28 @@ def create_index():
 
 
     count_index = 0 # Đếm số lượng index
-    previous_cve = ""
+    cpe_universe = ""
     matches = data.get("matches", [])
     with ix.writer() as writer:
         # Lấy dữ liệu từ trường "matches" trong JSON, thêm phần trăm tiến trình
         for i, match in tqdm(enumerate(matches), total=len(matches), desc="Đang Index"):
-            # Lấy vendor, product từ cpe23Uri
             cpe_uri_raw = match.get("cpe23Uri", "").strip()
-            if not cpe_uri_raw:
-                continue
-
             # Kiểm tra xem cpe khái quát này có trùng với cpe trước không, do cấu trúc lưu cpe
-            # có rất nhiều cpe khái quát trùng lặp bởi việc chia dải version
-            # Ở đây chỉ cần lưu cpe
-            if cpe_uri_raw == previous_cve:
+            # có rất nhiều cpe khái quát trùng lặp bởi việc chia dải version.
+            # Tuy nhiên có trường hợp không có cpe khái quát cho tất cả phiên bản mà chỉ có cpe của
+            # khái quát cho các phiên bản, vì vậy duyệt như này để đảm bảo lấy được đủ cpe của các
+            # cả toàn bộ phiên bản và dải phiên bản, dù có nhiều cpe dải phiên bản bị overlap.
+            if cpe_uri_raw == cpe_universe:
                 continue
             else:
-                previous_cve = cpe_uri_raw
+                if (not match.get("versionStartIncluding", "") and 
+                    not match.get("versionEndIncluding", "") and 
+                    not match.get("versionStartExcluding", "") and 
+                    not match.get("versionEndExcluding", "")):
+                    cpe_universe = cpe_uri_raw
+            
+            if not cpe_uri_raw:
+                continue
 
             # Lấy version từ list cpe_name
             vendor_product_cpe, _ = parse_cpe_uri(cpe_uri_raw)
@@ -122,38 +121,40 @@ def create_index():
 
 
 # 4. Tìm kiếm CPE
-def search_cpe(user_input_version: str, user_input_product:str, limit):
+def search_cpe(input_product: str, input_version:str, limit):
     if not os.path.exists(INDEX_DIR):
         print("Index directory not found. Please run indexing first.")
         return []
 
     ix = index.open_dir(INDEX_DIR)
 
+    input_product = normalize_input(input_product)
+    input_version = normalize_input(input_version)
+
     # Sử dụng BM25F để scoring
     searcher_weighting = scoring.BM25F(k1 = 0.001)
-    q = custom_user_query_parser(user_input_version, user_input_product)
-    print(f"Query: {q}")
+    q = custom_query_parser(input_product, input_version)
     with ix.searcher(weighting=searcher_weighting) as searcher:
         results = searcher.search(q, limit=limit)
-        # Lấy danh sách (score, cpe_uri), highlight version được match
-        results.fragmenter = highlight.ContextFragmenter(maxchars=100, surround=20)
-        results.formatter = ColorFormatter()
+        # Lấy danh sách (score, cpe_uri), highlight version được match trên terminal
+        # results.fragmenter = highlight.ContextFragmenter(maxchars=100, surround=20)
+        # results.formatter = ColorFormatter()
         matched = []
         for hit in results:
             score = hit.score
-            cpe_uri = hit["cpe"]
-            highlight_vendor_product = hit.highlights("vendor_product")
-            highlight_version = hit.highlights("versions")
-            matched.append((score, cpe_uri, highlight_vendor_product, highlight_version))
+            cpe_general = hit["cpe"]
+            version = input_version
+            cpe_full = build_cpe_full(cpe_general, version)
+            matched.append((score, cpe_general, version, cpe_full))
         return matched
 
 # Điều chỉnh query parser cho user_input
-def custom_user_query_parser(user_input_product: str, user_input_version:str):
+def custom_query_parser(input_product: str, input_version:str):
     vendor_product_parser = QueryParser("vendor_product", schema=schema)
     version_parser = QueryParser("versions", schema=schema)
 
-    q_product = vendor_product_parser.parse(user_input_product)
-    q_version = version_parser.parse(user_input_version)
+    q_product = vendor_product_parser.parse(input_product)
+    q_version = version_parser.parse(input_version)
 
     return And([q_product, q_version])
 
@@ -165,16 +166,23 @@ class ColorFormatter(highlight.Formatter):
         return f"{RED}{token.text}{RESET}"
     
 # Chuẩn hóa user_input
-def normalize_user_input(user_input: str):
+def normalize_input(user_input: str):
     return user_input.strip().replace(" ", "_")
 
+# Thêm version vào cpe_universe
+def build_cpe_full(cpe_universe, version):
+    parts = cpe_universe.split(":")
+    parts[5] = version
+    return ":".join(parts)
+
+# Tìm cpe từ user input
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "index":
         create_index()
         return
     # Mặc định: nhập user_query và search
-    user_input_product = normalize_user_input(input("Nhập tên công nghệ: "))
-    user_input_version = normalize_user_input(input("Nhập phiên bản: "))
+    user_input_product = normalize_input(input("Nhập tên công nghệ: "))
+    user_input_version = normalize_input(input("Nhập phiên bản: "))
     start_time = time.time()
     matched = search_cpe(user_input_product, user_input_version, limit=5)
     print(matched)

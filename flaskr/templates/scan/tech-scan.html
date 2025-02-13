@@ -30,8 +30,14 @@
     // Lắng nghe sự kiện 'status_update'
     socket.on('status_update', function(data) {
         console.log('Cập nhật status nhận được:', data);
-        document.getElementById('url-status').innerText = data.url_status;
-        document.getElementById('last-success-time').innerText = data.last_success_time;
+        const urlStatusElement = document.getElementById('url-status');
+        const lastSuccessTimeElement = document.getElementById('last-success-time');
+        if (urlStatusElement) {
+            urlStatusElement.innerText = data.url_status;
+        }
+        if (lastSuccessTimeElement) {
+            lastSuccessTimeElement.innerText = data.last_success_time;
+        }
     });
 
     // Lắng nghe sự kiện 'error'

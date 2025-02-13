@@ -9,6 +9,7 @@ from datetime import datetime
 from flaskr.auth import login_required
 from flask import Blueprint, flash, render_template, request, jsonify
 from packaging import version
+from flaskr.function.cpeScan import search_cpe
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  
@@ -100,22 +101,12 @@ def check_url_status(url, stop_event):
 
 @bp.route('/cpe-check', methods=['GET', 'POST'])
 def vuln_scan():
+    cpe_list = []
     if request.method == 'POST':
         selected = request.json
-    print(selected)
     for tech_info in selected:
-        tech = tech_info['tech']
-        version = tech_info['version']
-        # gọi hàm xử lý tech và ver để tìm cpe tại đây
-    # api_key = "4fc5fc94-2fc4-42e2-892b-15bca07d5593"
-    # selected = request.json
-    # for tech_info in selected:
-    #     tech = tech_info['tech']
-    #     version = tech_info['version']
-    # try:
-    #     response = requests.get(
-    #         f"https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe:2.3:o:*:{tech}::*:*:*:*:*:*:*",
-    #         headers={"api_key": api_key})
-    # except requests.RequestException as e:
-    #     flash(f"Lỗi khi tìm lỗ hổng trên cơ sở dữ liệu: {e}")
-    return render_template('scan/cpe-scan.html', version=version)
+        tech = tech_info.get('tech')
+        version = tech_info.get('version')
+        cpe_result = search_cpe(tech, version, 5)
+        cpe_list.append((tech, version, cpe_result))
+    return render_template('scan/cpe-scan.html', results = cpe_list)
