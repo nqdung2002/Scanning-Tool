@@ -10,6 +10,7 @@ from flaskr.auth import login_required
 from flask import Blueprint, flash, render_template, request, jsonify
 from packaging import version
 from flaskr.function.cpeScan import search_cpe
+from flaskr.function.cveScan import create_cve_list
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  
@@ -100,7 +101,7 @@ def check_url_status(url, stop_event):
             break  # Nếu stop_event được set trong thời gian chờ, thoát vòng lặp
 
 @bp.route('/cpe-check', methods=['GET', 'POST'])
-def vuln_scan():
+def cpe_scan():
     cpe_list = []
     if request.method == 'POST':
         selected = request.json
@@ -110,3 +111,24 @@ def vuln_scan():
         cpe_result = search_cpe(tech, version, 5)
         cpe_list.append((tech, version, cpe_result))
     return render_template('scan/cpe-scan.html', results = cpe_list)
+
+@bp.route('/cve-search', methods=['GET', 'POST'])
+def cve_search():
+    if request.method == 'POST':
+        request_list = [value for key, value in request.form.items() if key.startswith('selected_cpe_')]
+
+        # Định dạng tech|cpe|version
+        tech_results = []
+        for item in request_list:
+            request_detail = item.split('|')
+            tech = request_detail[0]
+            cpe = request_detail[1]
+            version = request_detail[2]
+            results = create_cve_list(cpe, version, 100)
+            tech_results.append({
+                'tech': tech,
+                "results": results
+            })
+        return render_template('scan/cve-search.html', results = tech_results)
+    
+    return render_template('scan/cve-search.html')

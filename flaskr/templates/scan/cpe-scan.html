@@ -1,31 +1,44 @@
 {% if results %}
-<h3>Danh sách CPE của các công nghệ và phiên bản:</h3>
-<div id="cpe-table">
+<form method="POST" action="{{ url_for('scan.cve_search') }}">
+  <h4>Danh sách CPE của các công nghệ và phiên bản:</h4>
+  <div id="cpe-table">
     {% for tech, version, cpe_result in results %}
-        {% set parent = loop %}
-        <h4>{{ tech }} - {{ version }}</h4>
-        {% if cpe_result %}
-            <table class="table table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th>Điểm</th>
-                        <th>CPE</th>
-                        <th>Chọn</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for score, cpe_general, version, cpe_full in cpe_result %}
-                    <tr>
-                        <td>{{ score|round(3) }}</td>
-                        <td>{{ cpe_full }}</td>
-                        <td><input type="radio" name="selected_cpe_{{ parent.index }}" {% if loop.first %}checked{% endif %}></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <span>Không tìm thấy CPE</span>
-        {% endif %}
+      {% set parent = loop %}
+      <h5>{{ tech }} - {{ version }}</h5>
+      {% if cpe_result %}
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>Điểm</th>
+              <th>CPE của công nghệ</th>
+              <th>Phiên bản</th>
+              <th>Chọn</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for score, cpe_general, ver in cpe_result %}
+            <tr>
+              <td>{{ score|round(3) }}</td>
+              <td>{{ cpe_general }}</td>
+              <td>{{ ver }}</td>
+              <td>
+                <!-- Dùng radio; value lưu cpe/phiên bản -->
+                <input 
+                  type="radio" 
+                  name="selected_cpe_{{ parent.index }}" 
+                  value="{{ tech }}|{{ cpe_general }}|{{ ver }}" 
+                  {% if loop.first %}checked{% endif %}
+                />
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <span>Không tìm thấy CPE</span>
+      {% endif %}
     {% endfor %}
-</div>
+  </div>
+  <button type="submit" class="btn btn-primary">Tìm CVE</button>
+</form>
 {% endif %}

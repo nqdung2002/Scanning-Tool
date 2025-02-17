@@ -1,6 +1,164 @@
 {
-    "https://example.com/": {
-        "HTTP/2": {
+    "https://nhipbac.com/": {
+        "Nginx": {
+            "version": "1.20.1",
+            "confidence": 100,
+            "categories": [
+                "Web servers",
+                "Reverse proxies"
+            ],
+            "groups": [
+                "Servers"
+            ]
+        },
+        "PHP": {
+            "version": "7.3.33",
+            "confidence": 100,
+            "categories": [
+                "Programming languages"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "WordPress": {
+            "version": "6.0",
+            "confidence": 100,
+            "categories": [
+                "CMS",
+                "Blogs"
+            ],
+            "groups": [
+                "Content"
+            ]
+        },
+        "jQuery": {
+            "version": "3.6.0",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "jQuery Migrate": {
+            "version": "3.3.2",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Underscore.js": {
+            "version": "1.13.3",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Astra": {
+            "version": "3.8.5",
+            "confidence": 100,
+            "categories": [
+                "WordPress themes"
+            ],
+            "groups": [
+                "Add-ons"
+            ]
+        },
+        "Elementor": {
+            "version": "3.6.5",
+            "confidence": 100,
+            "categories": [
+                "Page builders",
+                "WordPress plugins"
+            ],
+            "groups": [
+                "Web development",
+                "Add-ons"
+            ]
+        },
+        "WPForms": {
+            "version": "1.7.4.2",
+            "confidence": 100,
+            "categories": [
+                "WordPress plugins",
+                "Form builders"
+            ],
+            "groups": [
+                "Add-ons",
+                "Analytics"
+            ]
+        },
+        "All in One SEO Pack": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "SEO",
+                "WordPress plugins"
+            ],
+            "groups": [
+                "Marketing",
+                "Add-ons"
+            ]
+        },
+        "Elementor Header & Footer Builder": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "WordPress plugins"
+            ],
+            "groups": [
+                "Add-ons"
+            ]
+        },
+        "jQuery UI": {
+            "version": "1.13.1",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Lodash": {
+            "version": "1.13.3",
+            "confidence": 0,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Twitter Emoji (Twemoji)": {
+            "version": "14.0.2",
+            "confidence": 100,
+            "categories": [
+                "Font scripts"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Google Font API": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "Font scripts"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Open Graph": {
             "version": "",
             "confidence": 100,
             "categories": [
@@ -10,7 +168,7 @@
                 "Other"
             ]
         },
-        "HTTP/3": {
+        "RSS": {
             "version": "",
             "confidence": 100,
             "categories": [

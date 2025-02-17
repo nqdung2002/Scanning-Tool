@@ -7,7 +7,7 @@ import re
 
 from tqdm import tqdm
 from whoosh import index
-from whoosh.fields import Schema, TEXT, ID
+from whoosh.fields import Schema, TEXT, STORED
 from whoosh.query import And
 from whoosh.qparser import QueryParser
 from whoosh.analysis import RegexTokenizer, LowercaseFilter
@@ -22,14 +22,13 @@ CPE_PATTERN = re.compile(
 )
 
 # 0.1. Tạo analyzer cho index, thoát hết tất cả các kí tự đặc biệt, kể cả "/" và "\"
-my_analyzer = RegexTokenizer(r"[^ \\\/\t\r\n\-_:]+") | LowercaseFilter()
+cpe_analyzer = RegexTokenizer(r"[^ \\\/\t\r\n\-_:]+") | LowercaseFilter()
 
 # 1. Tạo schema cho index
 schema = Schema(
-    cpe_id = ID(stored=True),
-    vendor_product = TEXT(stored=True, analyzer=my_analyzer),
-    versions = TEXT(stored=True, analyzer=my_analyzer),
-    cpe = TEXT(stored=True)
+    vendor_product = TEXT(stored=True, analyzer=cpe_analyzer),
+    versions = TEXT(stored=True, analyzer=cpe_analyzer),
+    cpe = STORED
 )
 
 # 2. Parse dữ liệu từ JSON
@@ -49,7 +48,7 @@ def parse_cpe_uri(cpe_uri: str):
     return (vendor_product, version)
 
 # 3. Tạo index từ schema
-def create_index():
+def create_cpe_index():
     start_time = time.time()
 
     # Tạo thư mục chứa index, nếu đã tồn tại, refresh
@@ -102,7 +101,6 @@ def create_index():
             version_field = " ".join(version_list)
 
             writer.add_document(
-                cpe_id = str(i),
                 vendor_product = vendor_product_cpe,
                 versions = version_field,
                 cpe = cpe_uri_raw
@@ -128,9 +126,6 @@ def search_cpe(input_product: str, input_version:str, limit):
 
     ix = index.open_dir(INDEX_DIR)
 
-    input_product = normalize_input(input_product)
-    input_version = normalize_input(input_version)
-
     # Sử dụng BM25F để scoring
     searcher_weighting = scoring.BM25F(k1 = 0.001)
     q = custom_query_parser(input_product, input_version)
@@ -144,8 +139,7 @@ def search_cpe(input_product: str, input_version:str, limit):
             score = hit.score
             cpe_general = hit["cpe"]
             version = input_version
-            cpe_full = build_cpe_full(cpe_general, version)
-            matched.append((score, cpe_general, version, cpe_full))
+            matched.append((score, cpe_general, version))
         return matched
 
 # Điều chỉnh query parser cho user_input
@@ -158,7 +152,7 @@ def custom_query_parser(input_product: str, input_version:str):
 
     return And([q_product, q_version])
 
-# Chỉnh màu để highlight
+# Chỉnh màu để highlight trong cmd
 class ColorFormatter(highlight.Formatter):
     def format_token(self, text, token, replace=False):
         RED = "\033[91m"
@@ -169,16 +163,10 @@ class ColorFormatter(highlight.Formatter):
 def normalize_input(user_input: str):
     return user_input.strip().replace(" ", "_")
 
-# Thêm version vào cpe_universe
-def build_cpe_full(cpe_universe, version):
-    parts = cpe_universe.split(":")
-    parts[5] = version
-    return ":".join(parts)
-
 # Tìm cpe từ user input
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "index":
-        create_index()
+        create_cpe_index()
         return
     # Mặc định: nhập user_query và search
     user_input_product = normalize_input(input("Nhập tên công nghệ: "))
@@ -189,10 +177,9 @@ def main():
     end_time = time.time()
 
     print(f"\nTìm thấy {len(matched)} kết quả:")
-    for score, cpe_uri, highlight_vendor_product, highlight_version in matched:
+    for score, cpe_uri, version in matched:
         print(f"[score={score:.3f}] {cpe_uri}")
-        print(f"    Highlighted product: {highlight_vendor_product}")
-        print(f"    Highlighted version: {highlight_version} \n")
+        print(f"    Highlighted version: {version} \n")
     print(f"Thời gian tìm kiếm: {end_time - start_time:.4f} giây")
 
 if __name__ == "__main__":
