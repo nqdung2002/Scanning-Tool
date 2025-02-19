@@ -82,6 +82,13 @@
 
     // Hàm xử lý khi submit vuln scan
     function submitTechScanForm() {
+        // Kiểm tra đã chọn checkbox nào chưa
+        let selectedCheckboxes = document.querySelectorAll(".tech-check:checked");
+        if (selectedCheckboxes.length === 0) {
+            alert("Vui lòng chọn ít nhất một công nghệ để quét.");
+            return;
+        }
+
         let tableContainer = document.getElementById("table-content");
         let resultsContainer = document.getElementById("vuln-scan-result");
 
@@ -105,6 +112,18 @@
             resultsContainer.innerHTML = html; // Hiển thị kết quả kiểm tra lỗ hổng
         })
         .catch(error => console.error("Lỗi:", error));
+    }
+
+    // Xử lý submit form cpe trước khi submit
+    function submitCPEForm() {
+        document.querySelectorAll("input[type='radio']").forEach(radio => {
+            let parts = radio.value.split("|");
+            let tech = parts[0]; // Lấy phần tech từ radio.value ban đầu
+            let cpe_general = radio.closest("tr").querySelector("input[name^='cpe_general']").value;
+            let version = radio.closest("tr").querySelector("input[name^='version']").value;
+            radio.value = `${tech}|${cpe_general}|${version}`;
+        });
+        return true; 
     }
     
     // Hàm xử lý khi input thay đổi
@@ -138,6 +157,30 @@
             checkbox.checked = selectAll.checked;
         });
     }
+
+    // Thêm tech_row
+    function add_tech_row() {
+        let table = document.getElementById("table-content");
+        let newRow = document.createElement("tr");
+        newRow.id = "added-row"; 
+        newRow.innerHTML = `
+            <td>
+                <input name="tech" type="text" value=""/>
+            </td>
+            <td>
+                <input type="text" name="version" value="">
+            </td>
+            <td>
+                <input type="checkbox" class="tech-check"/>
+            </td>
+        `;
+        table.querySelector("tbody").appendChild(newRow);
+        const versionInput = newRow.querySelector("input[name='version']");
+        versionInput.addEventListener("input", function() {
+            toggleCheckbox(versionInput);
+        });
+    }
+
 
     // Khi trang load, kiểm tra tất cả các input
     document.addEventListener("DOMContentLoaded", function() {

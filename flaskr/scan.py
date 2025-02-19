@@ -127,6 +127,7 @@ def cve_search():
             results = create_cve_list(cpe, version, 100)
             tech_results.append({
                 'tech': tech,
+                'version': version,
                 "results": results
             })
         return render_template('scan/cve-search.html', results = tech_results)

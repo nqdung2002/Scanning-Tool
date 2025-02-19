@@ -2,15 +2,12 @@ import os
 import json
 import time
 import sys
-import re
 
 from tqdm import tqdm
 from packaging.version import Version
 from whoosh import index
 from whoosh.fields import Schema, TEXT, ID, STORED, KEYWORD
 from whoosh.query import Term
-from whoosh.qparser import QueryParser
-from whoosh.analysis import RegexTokenizer, LowercaseFilter
 from whoosh import scoring
 
 # Khai báo đường dẫn đến thư mục chứa data
@@ -134,7 +131,7 @@ def search_cve(input_cpe:str, limit):
     input_cpe = input_cpe.strip().lower()
 
     matched = []
-    for year in range(2002, 2026):
+    for year in reversed(range(2002, 2026)):
         YEAR_DIR = os.path.join(INDEX_DIR, str(year))
         if not os.path.exists(YEAR_DIR):
             print(f"Whoosh index directory for {year} not found. Please run indexing first.")
