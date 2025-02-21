@@ -8,9 +8,8 @@ from flask_socketio import emit
 from datetime import datetime
 from flaskr.auth import login_required
 from flask import Blueprint, flash, render_template, request, jsonify
-from packaging import version
-from flaskr.function.cpeScan import search_cpe
-from flaskr.function.cveScan import create_cve_list
+from flaskr.function.cpe_scan import search_cpe
+from flaskr.function.cve_scan import create_cve_list
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  
@@ -79,7 +78,7 @@ def check_url_status(url, stop_event):
     # Vòng lặp chạy cho đến khi stop_event được set
     while not stop_event.is_set():
         try:
-            response = requests.get(url)
+            response = requests.head(url)
             url_status = response.status_code
             last_success_time = datetime.now().strftime("%d-%m-%y %H:%M:%S")
             emit_data = {'url_status': url_status, 'last_success_time': last_success_time}
