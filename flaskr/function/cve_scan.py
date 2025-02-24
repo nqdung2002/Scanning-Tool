@@ -19,6 +19,7 @@ schema = Schema(
     cve_id=ID(unique=True, stored=True),
     cwe_id=STORED,
     description=STORED,
+    vectorString=STORED,
     baseScore=STORED,
     baseSeverity=STORED,
     exploitabilityScore=STORED,
@@ -41,14 +42,16 @@ def parse_cve(item):
     desc_data = item.get("cve", {}).get("description", {}).get("description_data", [])
     description = desc_data[0].get("value", "") if desc_data else ""
     
-    # Lấy thông tin về mức độ severity, baseScore, exploitabilityScore, impactScore
+    # Lấy thông tin về mức độ severity, baseScore, exploitabilityScore, impactScore, cvss
     impact_data = item.get("impact", {})
+    vectorString = ""
     baseScore = 0.0
     baseSeverity = ""
     exploitabilityScore = 0.0
     impactScore = 0.0
     if "baseMetricV3" in impact_data:
         bm3 = impact_data["baseMetricV3"]
+        vectorString = bm3.get("cvssV3", {}).get("vectorString", "")
         baseScore = bm3.get("cvssV3", {}).get("baseScore", 0.0)
         baseSeverity = bm3.get("cvssV3", {}).get("baseSeverity", "")
         exploitabilityScore = bm3.get("exploitabilityScore", 0.0)
@@ -75,6 +78,7 @@ def parse_cve(item):
         "cve_id": cve_id,
         "cwe_id": cwe,
         "description": description,
+        "vectorString": vectorString,
         "baseScore": baseScore,
         "baseSeverity": baseSeverity,
         "exploitabilityScore": exploitabilityScore,
@@ -148,13 +152,14 @@ def search_cve(input_cpe: str, limit):
                 cve = hit['cve_id']
                 cwe = hit['cwe_id']
                 description = hit['description']
+                vectorString = hit['vectorString']
                 baseScore = hit['baseScore']
                 baseSeverity = hit['baseSeverity']
                 exploitabilityScore = hit['exploitabilityScore']
                 impactScore = hit['impactScore']
                 cpe_info = hit['cpe_info']
-                matched.append((cve, cwe, description, baseScore, baseSeverity, 
-                                exploitabilityScore, impactScore, cpe_info))
+                matched.append((cve, cwe, description, vectorString ,baseScore,
+                                baseSeverity, exploitabilityScore, impactScore, cpe_info))
     return matched
 
 # 5. Tìm kiếm theo cpe chi tiết và (cpe tổng quát + check version)
@@ -170,7 +175,7 @@ def create_cve_list(input_cpe: str, input_version: str, limit):
     # 5.2 Search theo cpe tổng quát và check dải version
     raw_results = search_cve(input_cpe, limit)
     for hit in raw_results:
-        _, _, _, _, _, _, _, cpe_info = hit
+        _, _, _, _, _, _, _, _, cpe_info = hit
         for ver_range in json.loads(cpe_info)[input_cpe]:
             # Kiểm tra từng ver_range
             if is_in_version_range(input_version, ver_range):
@@ -180,8 +185,8 @@ def create_cve_list(input_cpe: str, input_version: str, limit):
     # Lược cpe_info để tránh dư thừa
     final_results = []
     for result in results:
-        cve, cwe, description, baseScore, baseSeverity, exploitabilityScore, impactScore, _ = result
-        final_results.append((cve, cwe, description, baseScore, baseSeverity, exploitabilityScore, impactScore))
+        cve, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, _ = result
+        final_results.append((cve, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore))
     end = time.time()
     print(f"Thời gian hoàn thành tìm kiếm: {end - start:.3f} giây")
     return final_results

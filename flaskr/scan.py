@@ -78,8 +78,16 @@ def check_url_status(url, stop_event):
     # Vòng lặp chạy cho đến khi stop_event được set
     while not stop_event.is_set():
         try:
-            response = requests.head(url)
+            response = requests.get(url)
             url_status = response.status_code
+
+            if url_status in [301, 302]:
+                new_url = response.headers.get('Location')
+                if new_url:
+                    print(f"Redirect từ {url} đến {new_url}")
+                    url = new_url
+                    continue
+
             last_success_time = datetime.now().strftime("%d-%m-%y %H:%M:%S")
             emit_data = {'url_status': url_status, 'last_success_time': last_success_time}
             socketio.emit('status_update', emit_data)

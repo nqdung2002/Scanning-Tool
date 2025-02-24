@@ -21,8 +21,7 @@
               <td>{{ score|round(3) }}</td>
               <td>
                 <input type="text" name="cpe_general_{{ parent.index }}" 
-                       value="{{ cpe_general }}"
-                       pattern="^cpe:2\.3:([aho]):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)$">
+                       value="{{ cpe_general }}">
               </td>
               <td>
                 <input type="text" name="version_{{ parent.index }}" value="{{ ver }}">
@@ -43,8 +42,7 @@
               <td>0</td>
               <td>
                 <input type="text" name="cpe_general_{{ parent.index }}" 
-                       value=""
-                       pattern="^cpe:2\.3:[aho]:[\w\-.]+:[\w\-.]+:[\w\-.]+(:[\w\-.]*){3}$">
+                       value="">
               </td>
               <td>
                 <input type="text" name="version_{{ parent.index }}" value="">
