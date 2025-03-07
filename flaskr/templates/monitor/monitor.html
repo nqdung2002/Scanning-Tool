@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-3">
+    <!-- Thanh tabs -->
+    <ul class="nav nav-tabs" id="monitorTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="url-tab" data-bs-toggle="tab" data-bs-target="#urlTab" type="button" role="tab" aria-controls="urlTab" aria-selected="true">URL</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tech-tab" data-bs-toggle="tab" data-bs-target="#techTab" type="button" role="tab" aria-controls="techTab" aria-selected="false">Tech</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="cve-tab" data-bs-toggle="tab" data-bs-target="#cveTab" type="button" role="tab" aria-controls="cveTab" aria-selected="false">CVE</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="urlTech-tab" data-bs-toggle="tab" data-bs-target="#urlTechTab" type="button" role="tab" aria-controls="urlTechTab" aria-selected="false">URL_Tech</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="techCve-tab" data-bs-toggle="tab" data-bs-target="#techCveTab" type="button" role="tab" aria-controls="techCveTab" aria-selected="false">Tech_CVE</button>
+      </li>
+    </ul>
+
+    <!-- Nội dung cho từng tab -->
+    <div class="tab-content mt-3" id="monitorTabsContent">
+      <!-- Tab URL -->
+      <div class="tab-pane fade show active" id="urlTab" role="tabpanel" aria-labelledby="url-tab">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>URL</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in url_list %}
+            <tr>
+              <td>{{ u.id }}</td>
+              <td>{{ u.url }}</td>
+              <td>{{ u.status }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Tech -->
+      <div class="tab-pane fade" id="techTab" role="tabpanel" aria-labelledby="tech-tab">
+        <table class="table table-bordered table-responsive">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tech</th>
+              <th>Version</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in tech_list %}
+            <tr>
+              <td>{{ t.id }}</td>
+              <td>{{ t.tech }}</td>
+              <td>{{ t.version }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab CVE -->
+      <div class="tab-pane fade" id="cveTab" role="tabpanel" aria-labelledby="cve-tab">
+        <div style="overflow-x: auto;">
+            <table class="table table-bordered" style="overflow-x: auto;">
+            <thead>
+                <tr>
+                <th>ID</th>
+                <th>CVE</th>
+                <th>Severity</th>
+                <th>Description</th>
+                <th>Vector</th>
+                <th>Base Score</th>
+                <th>Base Severity</th>
+                <th>Exploitability Score</th>
+                <th>Impact Score</th>
+                <th>Kết quả Nuclei</th>
+                <th>Thời gian update</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cve in cve_list %}
+                <tr>
+                <td>{{ cve.id }}</td>
+                <td style="white-space: nowrap; width: fit-content;">{{ cve.cve }}</td>
+                <td>{{ cve.baseSeverity }}</td>
+                <td>
+                    <div style="max-height: 3em; line-height: 1.5em; overflow-y: auto;">
+                    {{ cve.description }}
+                    </div>
+                </td>
+                </tr>
+                <tr>{{ cve.vectorString }}</tr>
+                <tr>{{ cve.baseScore }}</tr>
+                <tr>{{ cve.baseSeverity }}</tr>
+                <tr>{{ cve.exploitabilityScore }}</tr>
+                <tr>{{ cve.impactScore }}</tr>
+                <tr>{{ cve.nucleiResult }}</tr>
+                <tr>{{ cve.updated_at }}</tr>
+                {% endfor %}
+            </tbody>
+            </table>
+        </div>
+      </div>
+
+      <!-- Tab URL_Tech -->
+      <div class="tab-pane fade" id="urlTechTab" role="tabpanel" aria-labelledby="urlTech-tab">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>URL_ID</th>
+              <th>TECH_ID</th>
+              <th>Detected_At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ut in url_tech_list %}
+            <tr>
+              <td>{{ ut.id }}</td>
+              <td>{{ ut.url_id }}</td>
+              <td>{{ ut.tech_id }}</td>
+              <td>{{ ut.detected_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Tech_CVE -->
+      <div class="tab-pane fade" id="techCveTab" role="tabpanel" aria-labelledby="techCve-tab">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>TECH_ID</th>
+              <th>CVE_ID</th>
+              <th>Detected_At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tc in tech_cve_list %}
+            <tr>
+              <td>{{ tc.id }}</td>
+              <td>{{ tc.tech_id }}</td>
+              <td>{{ tc.cve_id }}</td>
+              <td>{{ tc.detected_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+</div>
+<!-- Trong phần <head> hoặc cuối <body> của base.html -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

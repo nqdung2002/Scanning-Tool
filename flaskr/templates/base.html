@@ -19,6 +19,9 @@
           <ul class="navbar-nav ms-auto">
             {% if g.user %}
               <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('monitor.monitoring') }}">Monitor</a>
+              </li>
+              <li class="nav-item">
                 <a class="nav-link" href="{{ url_for('scan.tech_scan') }}">Scan</a>
               </li>
               <li class="nav-item">

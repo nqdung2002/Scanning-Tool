@@ -4,7 +4,6 @@ from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from .function.data_auto_update import start_scheduler
 
 socketio = SocketIO()
 db = SQLAlchemy()
@@ -30,10 +29,11 @@ def create_app(test_config=None):
         pass
 
     # Đăng ký blueprint
-    from . import auth, blog, scan
+    from . import auth, blog, scan, monitor
     app.register_blueprint(auth.bp)
     app.register_blueprint(blog.bp)
     app.register_blueprint(scan.bp)
+    app.register_blueprint(monitor.bp)
     app.add_url_rule('/', endpoint='scan')
     
     # Khởi tạo database và migrate

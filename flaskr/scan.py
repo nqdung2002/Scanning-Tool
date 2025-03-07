@@ -4,6 +4,7 @@ import os
 import requests
 import threading
 from . import socketio
+from flaskr.function.nuclei_scan import check_template_available, run_nuclei, analyze_results
 from flask_socketio import emit
 from datetime import datetime
 from flaskr.auth import login_required
@@ -74,6 +75,8 @@ def stop_status():
 def check_url_status(url, stop_event):
     global url_status, last_success_time
     err_count = 0
+    redirect_count = 0
+    max_redirects = 10
     last_status = None
     # Vòng lặp chạy cho đến khi stop_event được set
     while not stop_event.is_set():
@@ -86,7 +89,17 @@ def check_url_status(url, stop_event):
                 if new_url:
                     print(f"Redirect từ {url} đến {new_url}")
                     url = new_url
+                    redirect_count += 1
+                    if redirect_count >= max_redirects:
+                        print("Redirect quá số lần cho phép.")
+                        break
                     continue
+            
+            # Xử lý status code 4xx và 5xx
+            if 400 <= response.status_code < 500:
+                raise requests.RequestException(f"Client error: {response.status_code}")
+            elif 500 <= response.status_code < 600:
+                raise requests.RequestException(f"Server error: {response.status_code}")
 
             last_success_time = datetime.now().strftime("%d-%m-%y %H:%M:%S")
             emit_data = {'url_status': url_status, 'last_success_time': last_success_time}
@@ -104,8 +117,11 @@ def check_url_status(url, stop_event):
             socketio.emit('status_update', emit_data)
             if err_count >= 5:
                 socketio.emit('error', {'message': f"Lỗi khi kiểm tra {url}: {err_log}"})
+                stop_event.set()
         if stop_event.wait(10):
             break  # Nếu stop_event được set trong thời gian chờ, thoát vòng lặp
+        
+
 
 @bp.route('/cpe-check', methods=['GET', 'POST'])
 def cpe_scan():
@@ -121,6 +137,7 @@ def cpe_scan():
 
 @bp.route('/cve-search', methods=['GET', 'POST'])
 def cve_search():
+    global url
     if request.method == 'POST':
         request_list = [value for key, value in request.form.items() if key.startswith('selected_cpe_')]
 
@@ -137,6 +154,45 @@ def cve_search():
                 'version': version,
                 "results": results
             })
-        return render_template('scan/cve-search.html', results = tech_results)
+        stop_status()
+        return render_template('scan/cve-search.html', results = tech_results, url = url)
     
     return render_template('scan/cve-search.html')
+
+@bp.route('/nuclei_scan', methods=['POST'])
+def nuclei_scan():
+    global url
+    data = request.json
+    cves = data['cves']
+
+    available_templates, missing_templates = check_template_available(cves)
+    results = {}
+
+    # Nếu có template, đặt mặc định là không phát hiện lỗ hổng
+    if available_templates:
+        for template in available_templates:
+            results[template] = {
+                "status": "Có template nhưng không phát hiện lỗ hổng",
+                "data": None
+            }
+        output_file = "scan-results.json"
+        stdout, stderr = run_nuclei(url, available_templates, output_file)
+        vulnerability_results = analyze_results(output_file, available_templates)
+        # Nếu template có phát hiện lỗ hổng, cập nhật lại status trong results
+        for template, status in vulnerability_results.items():
+            if status == "Có tồn tại lỗ hổng":
+                results[template] = {
+                    "status": status,
+                    "data": stdout  
+                }
+
+    # Các CVE không có template
+    for cve in missing_templates:
+        results[cve] = {
+            "status": "Không tìm thấy template",
+            "data": None
+        }
+    print(jsonify(results))
+    
+    return jsonify(results)
+
