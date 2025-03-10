@@ -1,8 +1,11 @@
-from flask import Blueprint, flash, render_template, request, jsonify
+import threading
+from flask import Blueprint, current_app, render_template, request, jsonify
 from flaskr.auth import login_required
 from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech
 from flaskr import db
+from flaskr.function.url_monitor import check_url_status
 
+monitor_threads = {}  # {url_id: (thread, stop_event)}
 
 bp = Blueprint('monitor', __name__)
 
@@ -23,9 +26,21 @@ def monitoring():
         tech_cve_list=tech_cve_list
     )
 
+# Khởi động thread theo dõi cho tất cả URL có monitoring_active=True
+def start_watchlist_threads():
+    global monitor_threads
+    print("Bắt đầu monitoring")
+    print(monitor_threads)
+    urls = URL.query.filter_by(monitoring_active=True).all()
+    monitor_threads = {}
+    for url_obj in urls:
+        if url_obj.id not in monitor_threads:
+            start_monitoring_for_url(url_obj.id)
+
 @bp.route('/add_to_watchlist', methods=['POST'])
 @login_required
 def add_to_watchlist():
+    global monitor_threads
     data = request.json
     url = data.get('url')
     url_id = add_url(url)
@@ -52,6 +67,8 @@ def add_to_watchlist():
                 cve_id = add_cve(cve, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
                 tech_cve_association(tech_id, cve_id)
         db.session.commit()
+        if url_id not in monitor_threads:
+            start_monitoring_for_url(url_id)
         return "Thành công!!!", 200
     except Exception as e:
         db.session.rollback()
@@ -64,9 +81,56 @@ def remove_from_watchlist():
     data = request.get_data(as_text=True)
     url_obj = URL.query.filter_by(url=data).first()
     if url_obj:
+        stop_monitoring_for_url(url_obj.id)
         delete_url_with_association(url_obj.id)
         return "URL đã được xóa khỏi danh sách theo dõi", 200
     return "Không tìm thấy URL", 404
+
+@bp.route('/stop_monitor/<int:url_id>', methods=['POST'])
+@login_required
+def stop_monitor(url_id):
+    stop_monitoring_for_url(url_id)
+    return jsonify(success=True)
+
+@bp.route('/start_monitor/<int:url_id>', methods=['POST'])
+@login_required
+def start_monitor(url_id):
+    url_obj = URL.query.get(url_id)
+    if url_obj and url_id not in monitor_threads:
+        url_obj.monitoring_active = True
+        db.session.commit()
+        start_monitoring_for_url(url_id)
+        return jsonify(success=True)
+    return jsonify(success=False, message="URL đã được theo dõi hoặc không tồn tại")
+
+# Khởi động thread theo dõi cho 1 URL cụ thể
+def start_monitoring_for_url(url_id):
+    url_obj = URL.query.get(url_id)
+    if not url_obj:
+        return
+    stop_event = threading.Event()
+    app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=check_url_status,
+        args=(url_obj.url, stop_event, url_obj.id, url_obj.monitoring_active),
+        kwargs={'app': app},
+        daemon=True
+    )
+    monitor_threads[url_id] = (thread, stop_event)
+    thread.start()
+
+
+# Dừng thread theo dõi cho 1 URL
+def stop_monitoring_for_url(url_id):
+    if url_id in monitor_threads:
+        thread, stop_event = monitor_threads[url_id]
+        stop_event.set()
+        thread.join()
+        del monitor_threads[url_id]
+        url_obj = URL.query.get(url_id)
+        if url_obj:
+            url_obj.monitoring_active = False
+            db.session.commit()
 
 
 # Xử lý csdl
@@ -74,8 +138,11 @@ def remove_from_watchlist():
 def add_url(url):
     existing_url = URL.query.filter_by(url=url).first()
     if existing_url:
+        if not existing_url.monitoring_active:
+            existing_url.monitoring_active = True
+            db.session.commit()
         return existing_url.id
-    new_url = URL(url=url, status="online")
+    new_url = URL(url=url, status="online", monitoring_active=True)
     db.session.add(new_url)
     db.session.flush()
     return new_url.id
@@ -153,6 +220,7 @@ def delete_url_with_association(url_id):
                 db.session.delete(tech_obj) # Xóa tech
     db.session.delete(url_obj) # Xóa url cuối cùng
     db.session.commit()
+#####################################################################################
 
 
 

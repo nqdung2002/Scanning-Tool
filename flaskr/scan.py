@@ -1,46 +1,43 @@
 import subprocess
 import json
 import os
-import requests
 import threading
-from . import socketio
-from flaskr.function.nuclei_scan import check_template_available, run_nuclei, analyze_results
-from flask_socketio import emit
-from datetime import datetime
-from flaskr.auth import login_required
 from flask import Blueprint, flash, render_template, request, jsonify
+from flaskr.auth import login_required
+from flaskr import socketio
+from flaskr.function.nuclei_scan import check_template_available, run_nuclei, analyze_results
 from flaskr.function.cpe_scan import search_cpe
 from flaskr.function.cve_scan import create_cve_list
+from flaskr.function.url_monitor import check_url_status  # Sử dụng hàm chung để theo dõi URL
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  
 
-# Khai báo các biến toàn cục cho việc kiểm soát thread
-url = None
-current_thread = None
-stop_event = threading.Event()
+# Biến toàn cục dùng cho việc scan
+current_scan_thread = None
+scan_stop_event = threading.Event()
 url_status = None
 last_success_time = "Chưa có kết quả"
+scanning_url = None
 
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
 def tech_scan():
-    global url_status, current_thread, stop_event, url
+    global url_status, current_scan_thread, scan_stop_event, scanning_url
     results = None
 
     if request.method == 'POST':
-        url = request.form.get('url')
-        if url:
-            # Đóng thread cũ và chạy thread mới
-            if current_thread and current_thread.is_alive():
-                stop_event.set()        # Báo hiệu cho thread cũ dừng
-                current_thread.join()   # Chờ thread cũ kết thúc
-                print("Đã kết thúc thread cũ")
-            stop_event = threading.Event() 
-
+        scanning_url = request.form.get('url')
+        if scanning_url:
+            # Nếu có thread scan cũ đang chạy thì dừng nó
+            if current_scan_thread and current_scan_thread.is_alive():
+                scan_stop_event.set()
+                current_scan_thread.join()
+                print("Đã kết thúc thread scan cũ")
+            scan_stop_event = threading.Event()
             try:
                 # Chạy Wappalyzer để quét công nghệ
-                cmd = ["wappalyzer", "-i", url, "-oJ", LOG_FILE]
+                cmd = ["wappalyzer", "-i", scanning_url, "-oJ", LOG_FILE]
                 subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
                 if os.path.exists(LOG_FILE):
@@ -48,100 +45,49 @@ def tech_scan():
                         results = json.load(f)
                     with open(LOG_FILE, "w", encoding="utf-8") as f:
                         f.write(json.dumps(results, indent=4))
-                    # os.remove(LOG_FILE)
                 else:
                     flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
                 
-                # Khởi tạo và chạy thread mới với stop_event được truyền vào
-                current_thread = threading.Thread(target=check_url_status, args=(url, stop_event), daemon=True)
-                current_thread.start()
+                # Khởi động thread theo dõi trạng thái URL (với url_id=None vì URL chưa có trong DB)
+                current_scan_thread = threading.Thread(
+                    target=check_url_status, args=(scanning_url, scan_stop_event),
+                    daemon=True
+                )
+                current_scan_thread.start()
             except Exception as e:
                 flash(f"Lỗi khi quét: {e}")
 
-        # Nếu request đến từ AJAX, trả về kết quả riêng
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return render_template('scan/tech-scan-result.html', results=results, url_status=url_status, url=url)
+            return render_template('scan/tech-scan-result.html', results=results, url_status=url_status, url=scanning_url)
 
-    return render_template('scan/tech-scan.html', results=results, url_status=url_status, url=url)
+    return render_template('scan/tech-scan.html', results=results, url_status=url_status, url=scanning_url)
 
+# endpoint để dừng kiểm tra status thủ công trên giao diện
 @bp.route('/stop-status', methods=['POST'])
 @login_required
 def stop_status():
-    global stop_event
-    stop_event.set()  # Dừng thread đang chạy
-    print("Đã dừng thread")
+    global scan_stop_event
+    scan_stop_event.set()
+    print("Đã dừng thread scan")
     return jsonify(success=True)
-
-def check_url_status(url, stop_event):
-    global url_status, last_success_time
-    err_count = 0
-    redirect_count = 0
-    max_redirects = 10
-    last_status = None
-    # Vòng lặp chạy cho đến khi stop_event được set
-    while not stop_event.is_set():
-        try:
-            response = requests.get(url)
-            url_status = response.status_code
-
-            if url_status in [301, 302]:
-                new_url = response.headers.get('Location')
-                if new_url:
-                    print(f"Redirect từ {url} đến {new_url}")
-                    url = new_url
-                    redirect_count += 1
-                    if redirect_count >= max_redirects:
-                        print("Redirect quá số lần cho phép.")
-                        break
-                    continue
-            
-            # Xử lý status code 4xx và 5xx
-            if 400 <= response.status_code < 500:
-                raise requests.RequestException(f"Client error: {response.status_code}")
-            elif 500 <= response.status_code < 600:
-                raise requests.RequestException(f"Server error: {response.status_code}")
-
-            last_success_time = datetime.now().strftime("%d-%m-%y %H:%M:%S")
-            emit_data = {'url_status': url_status, 'last_success_time': last_success_time}
-            socketio.emit('status_update', emit_data)
-            print(f"Status của {url}: {url_status}")
-            err_count = 0
-            last_status = url_status
-        # Xử lý lỗi kết nối
-        except requests.RequestException as e:
-            err_count += 1
-            err_log = str(e)
-            print(f"Lỗi khi kiểm tra {url}: {err_log}")
-            url_status = "{} (Lỗi kết nối {} lần)".format(last_status, err_count)
-            emit_data = {'url_status': url_status, 'last_success_time': last_success_time}
-            socketio.emit('status_update', emit_data)
-            if err_count >= 5:
-                socketio.emit('error', {'message': f"Lỗi khi kiểm tra {url}: {err_log}"})
-                stop_event.set()
-        if stop_event.wait(10):
-            break  # Nếu stop_event được set trong thời gian chờ, thoát vòng lặp
-        
-
 
 @bp.route('/cpe-check', methods=['GET', 'POST'])
 def cpe_scan():
     cpe_list = []
     if request.method == 'POST':
         selected = request.json
-    for tech_info in selected:
-        tech = tech_info.get('tech')
-        version = tech_info.get('version')
-        cpe_result = search_cpe(tech, version, 5)
-        cpe_list.append((tech, version, cpe_result))
-    return render_template('scan/cpe-scan.html', results = cpe_list)
+        for tech_info in selected:
+            tech = tech_info.get('tech')
+            version = tech_info.get('version')
+            cpe_result = search_cpe(tech, version, 5)
+            cpe_list.append((tech, version, cpe_result))
+    return render_template('scan/cpe-scan.html', results=cpe_list)
 
 @bp.route('/cve-search', methods=['GET', 'POST'])
 def cve_search():
-    global url
+    global scanning_url
     if request.method == 'POST':
         request_list = [value for key, value in request.form.items() if key.startswith('selected_cpe_')]
-
-        # Định dạng tech|cpe|version
         tech_results = []
         for item in request_list:
             request_detail = item.split('|')
@@ -155,20 +101,17 @@ def cve_search():
                 "results": results
             })
         stop_status()
-        return render_template('scan/cve-search.html', results = tech_results, url = url)
-    
+        return render_template('scan/cve-search.html', results=tech_results, url=scanning_url)
     return render_template('scan/cve-search.html')
 
 @bp.route('/nuclei_scan', methods=['POST'])
 def nuclei_scan():
-    global url
+    global scanning_url
     data = request.json
     cves = data['cves']
-
     available_templates, missing_templates = check_template_available(cves)
     results = {}
 
-    # Nếu có template, đặt mặc định là không phát hiện lỗ hổng
     if available_templates:
         for template in available_templates:
             results[template] = {
@@ -176,23 +119,18 @@ def nuclei_scan():
                 "data": None
             }
         output_file = "scan-results.json"
-        stdout, stderr = run_nuclei(url, available_templates, output_file)
+        stdout, stderr = run_nuclei(scanning_url, available_templates, output_file)
         vulnerability_results = analyze_results(output_file, available_templates)
-        # Nếu template có phát hiện lỗ hổng, cập nhật lại status trong results
         for template, status in vulnerability_results.items():
             if status == "Có tồn tại lỗ hổng":
                 results[template] = {
                     "status": status,
                     "data": stdout  
                 }
-
-    # Các CVE không có template
     for cve in missing_templates:
         results[cve] = {
             "status": "Không tìm thấy template",
             "data": None
         }
     print(jsonify(results))
-    
     return jsonify(results)
-

@@ -12,6 +12,7 @@ class URL(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(256), nullable=False, index=True)
     status = db.Column(db.Enum('online', 'offline', name='status_enum'), nullable=False)
+    monitoring_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
