@@ -231,12 +231,15 @@ def extract_child_cpe(node):
     return entries
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "index":
-        indexing_full_cve()
-        return
-    input_cpe = input("Nhập CPE: ")
-    input_version = input("Nhập version: ")
-    create_cve_list(input_cpe, input_version, 100)
+    if len(sys.argv) > 1:
+        print(sys.argv[1], type(sys.argv[1]))
+        if sys.argv[1] == "index":
+            indexing_modified_recent_cve()
+            return
+        elif int(sys.argv[1]) in range(2002, 2026):
+            create_cve_index(["2023"])
+            return
+
 
 if __name__ == "__main__":
     main()

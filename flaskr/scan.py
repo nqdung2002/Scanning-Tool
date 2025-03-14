@@ -2,6 +2,7 @@ import subprocess
 import json
 import os
 import threading
+import time
 from flask import Blueprint, flash, render_template, request, jsonify
 from flaskr.auth import login_required
 from flaskr import socketio
@@ -24,6 +25,8 @@ scanning_url = None
 @login_required
 def tech_scan():
     global url_status, current_scan_thread, scan_stop_event, scanning_url
+    max_retries = 3  # Số lần thử lại tối đa
+    retry_delay = 5
     results = None
 
     if request.method == 'POST':
@@ -35,18 +38,31 @@ def tech_scan():
                 current_scan_thread.join()
                 print("Đã kết thúc thread scan cũ")
             scan_stop_event = threading.Event()
-            try:
-                # Chạy Wappalyzer để quét công nghệ
-                cmd = ["wappalyzer", "-i", scanning_url, "-oJ", LOG_FILE]
-                subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
+            retries = 0
+            while retries < max_retries:
+                try:
+                    # Chạy Wappalyzer để quét công nghệ
+                    cmd = ["wappalyzer", "-i", scanning_url, "-oJ", LOG_FILE]
+                    subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
-                if os.path.exists(LOG_FILE):
-                    with open(LOG_FILE, "r", encoding="utf-8") as f:
-                        results = json.load(f)
-                    with open(LOG_FILE, "w", encoding="utf-8") as f:
-                        f.write(json.dumps(results, indent=4))
-                else:
-                    flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+                    if os.path.exists(LOG_FILE):
+                        with open(LOG_FILE, "r", encoding="utf-8") as f:
+                            results = json.load(f)
+                        with open(LOG_FILE, "w", encoding="utf-8") as f:
+                            f.write(json.dumps(results, indent=4))
+                        print("Quét thành công")
+                        break  # Thoát khỏi vòng lặp nếu quét thành công
+                    else:
+                        flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+                        print("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+                except subprocess.CalledProcessError as e:
+                    retries += 1
+                    print(f"Lỗi khi quét: {e}. Thử lại lần {retries}/{max_retries}")
+                    if retries < max_retries:
+                        time.sleep(retry_delay)  # Chờ trước khi thử lại
+                    else:
+                        flash(f"Lỗi khi quét: {e}. Đã thử lại {max_retries} lần nhưng không thành công.")
+                        print(f"Lỗi khi quét: {e}. Đã thử lại {max_retries} lần nhưng không thành công.")
                 
                 # Khởi động thread theo dõi trạng thái URL (với url_id=None vì URL chưa có trong DB)
                 current_scan_thread = threading.Thread(
@@ -54,8 +70,6 @@ def tech_scan():
                     daemon=True
                 )
                 current_scan_thread.start()
-            except Exception as e:
-                flash(f"Lỗi khi quét: {e}")
 
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return render_template('scan/tech-scan-result.html', results=results, url_status=url_status, url=scanning_url)
@@ -98,6 +112,7 @@ def cve_search():
             tech_results.append({
                 'tech': tech,
                 'version': version,
+                'cpe': cpe,
                 "results": results
             })
         stop_status()
@@ -105,10 +120,14 @@ def cve_search():
     return render_template('scan/cve-search.html')
 
 @bp.route('/nuclei_scan', methods=['POST'])
-def nuclei_scan():
+def nuclei_scan_route():
     global scanning_url
     data = request.json
     cves = data['cves']
+    results = nuclei_scan(cves, scanning_url)
+    return jsonify(results)
+
+def nuclei_scan(cves, scanning_url):
     available_templates, missing_templates = check_template_available(cves)
     results = {}
 
@@ -116,21 +135,17 @@ def nuclei_scan():
         for template in available_templates:
             results[template] = {
                 "status": "Có template nhưng không phát hiện lỗ hổng",
-                "data": None
             }
         output_file = "scan-results.json"
-        stdout, stderr = run_nuclei(scanning_url, available_templates, output_file)
+        run_nuclei(scanning_url, available_templates, output_file)
         vulnerability_results = analyze_results(output_file, available_templates)
         for template, status in vulnerability_results.items():
             if status == "Có tồn tại lỗ hổng":
                 results[template] = {
                     "status": status,
-                    "data": stdout  
                 }
     for cve in missing_templates:
         results[cve] = {
             "status": "Không tìm thấy template",
-            "data": None
         }
-    print(jsonify(results))
-    return jsonify(results)
+    return results

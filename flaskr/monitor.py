@@ -1,9 +1,11 @@
 import threading
+import json
 from flask import Blueprint, current_app, render_template, request, jsonify
 from flaskr.auth import login_required
-from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech
-from flaskr import db
+from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech, Alerts
+from flaskr import db, socketio
 from flaskr.function.url_monitor import check_url_status
+from flaskr.function.mode_scan import manual_scan as mscan
 
 monitor_threads = {}  # {url_id: (thread, stop_event)}
 
@@ -15,22 +17,17 @@ def monitoring():
     url_list = URL.query.all()
     tech_list = Tech.query.all()
     cve_list = CVE.query.all()
-    url_tech_list = URL_Tech.query.all()
-    tech_cve_list = Tech_CVE.query.all()
     return render_template(
         'monitor/monitor.html',
         url_list=url_list,
         tech_list=tech_list,
         cve_list=cve_list,
-        url_tech_list=url_tech_list,
-        tech_cve_list=tech_cve_list
     )
 
 # Khởi động thread theo dõi cho tất cả URL có monitoring_active=True
 def start_watchlist_threads():
     global monitor_threads
     print("Bắt đầu monitoring")
-    print(monitor_threads)
     urls = URL.query.filter_by(monitoring_active=True).all()
     monitor_threads = {}
     for url_obj in urls:
@@ -50,7 +47,8 @@ def add_to_watchlist():
             # Lấy tech
             tech = result.get('tech')
             version = result.get('version')
-            tech_id = add_tech(tech, version)
+            cpe = result.get('cpe')
+            tech_id = add_tech(tech, version, cpe)
             url_tech_association(url_id, tech_id)
 
             # Lấy từng CVE
@@ -86,13 +84,13 @@ def remove_from_watchlist():
         return "URL đã được xóa khỏi danh sách theo dõi", 200
     return "Không tìm thấy URL", 404
 
-@bp.route('/stop_monitor/<int:url_id>', methods=['POST'])
+@bp.route('/stop_monitor/<int:url_id>', methods=['GET'])
 @login_required
 def stop_monitor(url_id):
     stop_monitoring_for_url(url_id)
     return jsonify(success=True)
 
-@bp.route('/start_monitor/<int:url_id>', methods=['POST'])
+@bp.route('/start_monitor/<int:url_id>', methods=['GET'])
 @login_required
 def start_monitor(url_id):
     url_obj = URL.query.get(url_id)
@@ -166,14 +164,20 @@ def add_cve(cve, cwe, description, vectorString, baseScore, baseSeverity, exploi
     db.session.flush()
     return new_cve.id
 
-def add_tech(tech, version):
+def add_tech(tech, version, cpe):
     existing_tech = Tech.query.filter_by(tech=tech, version=version).first()
     if existing_tech:
         return existing_tech.id
-    new_tech = Tech(tech=tech, version=version)
+    new_tech = Tech(tech=tech, version=version, cpe=cpe)
     db.session.add(new_tech)
     db.session.flush()
     return new_tech.id
+
+def add_alert(url_id, alert_type, title, content):
+    new_alert = Alerts(url_id=url_id, alert_type=alert_type, title=title, content=content)
+    db.session.add(new_alert)
+    db.session.flush()
+    return new_alert.id
 
 def url_tech_association(url_id, tech_id):
     if not URL_Tech.query.filter_by(url_id=url_id, tech_id=tech_id).first():
@@ -222,10 +226,204 @@ def delete_url_with_association(url_id):
     db.session.commit()
 #####################################################################################
 
+# Routing tham chiếu
+#####################################################################################
+@bp.route('/get_cve_list/<type>/<int:id>', methods=['GET'])
+@login_required
+def get_cve_list(type, id):
+    cve_id_list = []
+    if type == 'url':
+        url_techs = URL_Tech.query.filter_by(url_id=id).all()
+        for url_tech in url_techs:
+            tech_cves = Tech_CVE.query.filter_by(tech_id=url_tech.tech_id).all()
+            for tech_cve in tech_cves:
+                cve_id_list.append(tech_cve.cve_id)
+    elif type == 'tech':
+        tech_cves = Tech_CVE.query.filter_by(tech_id=id).all()
+        for tech_cve in tech_cves:
+            cve_id_list.append(tech_cve.cve_id)
+    result = {
+        'id': cve_id_list
+    }
+    return jsonify(result)
+
+@bp.route('/get_tech_list/<type>/<int:id>', methods=['GET'])
+@login_required
+def get_tech_list(type, id):
+    tech_id_list = []
+    if type == 'url':
+        url_techs = URL_Tech.query.filter_by(url_id=id).all()
+        for url_tech in url_techs:
+            tech_id_list.append(url_tech.tech_id)
+    elif type == 'cve':
+        tech_cves = Tech_CVE.query.filter_by(cve_id=id).all()
+        for tech_cve in tech_cves:
+            tech_id_list.append(tech_cve.tech_id)
+    result = {
+        'id': tech_id_list
+    }
+    return jsonify(result)
+
+@bp.route('/get_url_list/<type>/<int:id>', methods=['GET'])
+@login_required
+def get_url_list(type, id):
+    url_id_list = []
+    if type == 'cve':
+        tech_cves = Tech_CVE.query.filter_by(cve_id=id).all()
+        for tech_cve in tech_cves:
+            url_techs = URL_Tech.query.filter_by(tech_id=tech_cve.tech_id).all()
+            for url_tech in url_techs:
+                url_id_list.append(url_tech.url_id)
+    elif type == 'tech':
+        url_techs = URL_Tech.query.filter_by(tech_id=id).all()
+        for url_tech in url_techs:
+            url_id_list.append(url_tech.url_id)
+    result = {
+        'id': url_id_list
+    }
+    return jsonify(result)
+#####################################################################################
+
+# Quét thủ công
+#####################################################################################
+@bp.route('/manual-scan/<int:url_id>', methods=['GET'])
+@login_required
+def manual_scan(url_id):
+    app = current_app._get_current_object()
+    new_cves, modified_cves = mscan(url_id, app)
+    if new_cves:
+        title = f"Phát hiện { len(new_cves) } CVE mới!"
+        alert_type = 'new'
+        cve_id_list = []
+        for cve, tech_id in new_cves:
+            cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult = cve
+            cve_id = add_cve(cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
+            cve_id_list.append(cve_id)
+            tech_cve_association(tech_id, cve_id)
+        alert_id = add_alert(url_id=url_id, alert_type=alert_type, title=title, content=cve_id_list)
+        db.session.commit()
+        socketio.emit('notification_push', {
+            'alert_id': alert_id,
+            'url_id': url_id,
+            'url': URL.query.filter_by(id=url_id).first().url,
+            'alert_type': alert_type,
+            'title': title,
+            'content': cve_id_list 
+        })
+        print(title)
+    if modified_cves:
+        title = f"Phát hiện { len(modified_cves) } CVE được chỉnh sửa!"
+        change_list = []
+        for info in modified_cves:
+            cve, change = info
+            print(change)
+            cve_name = cve[0]
+            change_list.append({
+                "cve": cve_name,
+                "changes": change
+            })
+            cve_instance = CVE.query.filter_by(cve=cve_name).first()
+            # Update các trường thay đổi vào cơ sở dữ liệu
+            for field, values in change.items():
+                setattr(cve_instance, field, values['new'])
+        content = json.dumps(change_list, ensure_ascii=False)
+        alert_type = 'modified'
+        alert_id = add_alert(url_id=url_id, alert_type=alert_type, title=title, content=content)
+        db.session.commit()
+        print(title)
+        socketio.emit('notification_push', {
+        'alert_id': alert_id,
+        'url_id': url_id,
+        'url': URL.query.filter_by(id=url_id).first().url,
+        'alert_type': alert_type,
+        'title': title,
+        'content': content
+        })
+    return '200', 200
+
+@bp.route('/load_notifications', methods=['GET'])
+@login_required
+def load_notifications():
+    # Sắp xếp từ dưới lên: có thể dùng order_by(Alerts.notified_at.asc()) nếu bạn muốn alert cũ ở đầu
+    alerts = Alerts.query.all()
+    alerts_data = [{
+        'alert_id': alert.id,
+        'url_id': alert.url_id,
+        'url': URL.query.get(alert.url_id).url,
+        'alert_type': alert.alert_type,
+        'title': alert.title,
+        'content': alert.content,
+        'is_read': alert.is_read
+    } for alert in alerts]
+    return jsonify(alerts_data)
+
+@bp.route('/mark_alert_read/<int:alert_id>', methods=['GET'])
+def set_is_read(alert_id):
+    alert = Alerts.query.filter_by(id=alert_id).first()
+    alert.is_read = 1
+    db.session.commit()
+    return '200', 200
+#####################################################################################
 
 
-
-
-    
-
+def auto_scan():
+    """
+    Hàm auto_scan sẽ duyệt qua từng URL trong cơ sở dữ liệu,
+    gọi manual_scan cho từng URL và xử lý kết quả:
+      - Nếu có CVE mới, tạo alert 'new' và phát thông báo qua Socket.IO.
+      - Nếu có CVE được chỉnh sửa, cập nhật record, tạo alert 'modified' và phát thông báo.
+    """
+    app = current_app._get_current_object()
+    with app.app_context():
+        urls = URL.query.all()
+        for url_obj in urls:
+            new_cves, modified_cves = mscan(url_obj.id, app)
+            # Xử lý CVE mới
+            if new_cves:
+                title = f"Phát hiện {len(new_cves)} CVE mới tại URL {url_obj.url}"
+                alert_type = 'new'
+                cve_id_list = []
+                for cve_info, tech_id in new_cves:
+                    # cve_info là tuple chứa thông tin CVE
+                    # Nếu record đã tồn tại, add_cve sẽ trả về id của record hiện có
+                    cve_id = add_cve(*cve_info)
+                    cve_id_list.append(cve_id)
+                    tech_cve_association(tech_id, cve_id)
+                alert_id = add_alert(url_obj.id, alert_type, title, cve_id_list)
+                db.session.commit()
+                socketio.emit('notification_push', {
+                    'alert_id': alert_id,
+                    'url_id': url_obj.id,
+                    'url': url_obj.url,
+                    'alert_type': alert_type,
+                    'title': title,
+                    'content': cve_id_list
+                })
+            # Xử lý CVE được chỉnh sửa
+            if modified_cves:
+                title = f"Phát hiện {len(modified_cves)} CVE được chỉnh sửa tại URL {url_obj.url}"
+                change_list = []
+                for cve_info, changes in modified_cves:
+                    # Lấy tên CVE từ tuple
+                    cve_name = cve_info[0] if isinstance(cve_info, (list, tuple)) else cve_info
+                    change_list.append({
+                        "cve": cve_name,
+                        "changes": changes
+                    })
+                    cve_instance = CVE.query.filter_by(cve=cve_name).first()
+                    if cve_instance:
+                        for field, values in changes.items():
+                            setattr(cve_instance, field, values['new'])
+                content = json.dumps(change_list, ensure_ascii=False)
+                alert_type = 'modified'
+                alert_id = add_alert(url_obj.id, alert_type, title, content)
+                db.session.commit()
+                socketio.emit('notification_push', {
+                    'alert_id': alert_id,
+                    'url_id': url_obj.id,
+                    'url': url_obj.url,
+                    'alert_type': alert_type,
+                    'title': title,
+                    'content': content
+                })
     

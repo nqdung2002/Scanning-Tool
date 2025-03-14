@@ -1,47 +1,76 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-3">
-    <!-- Thanh tabs -->
-    <ul class="nav nav-tabs" id="monitorTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="url-tab" data-bs-toggle="tab" data-bs-target="#urlTab" type="button" role="tab" aria-controls="urlTab" aria-selected="true">URL</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tech-tab" data-bs-toggle="tab" data-bs-target="#techTab" type="button" role="tab" aria-controls="techTab" aria-selected="false">Tech</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="cve-tab" data-bs-toggle="tab" data-bs-target="#cveTab" type="button" role="tab" aria-controls="cveTab" aria-selected="false">CVE</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="urlTech-tab" data-bs-toggle="tab" data-bs-target="#urlTechTab" type="button" role="tab" aria-controls="urlTechTab" aria-selected="false">URL_Tech</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="techCve-tab" data-bs-toggle="tab" data-bs-target="#techCveTab" type="button" role="tab" aria-controls="techCveTab" aria-selected="false">Tech_CVE</button>
-      </li>
-    </ul>
+  <!-- Thanh tabs -->
+  <ul class="nav nav-tabs" id="monitorTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="url-tab" data-bs-toggle="tab" data-bs-target="#urlTab" type="button" role="tab" aria-controls="urlTab" aria-selected="true">URL</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tech-tab" data-bs-toggle="tab" data-bs-target="#techTab" type="button" role="tab" aria-controls="techTab" aria-selected="false">Tech</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="cve-tab" data-bs-toggle="tab" data-bs-target="#cveTab" type="button" role="tab" aria-controls="cveTab" aria-selected="false">CVE</button>
+    </li>
+  </ul>
 
-    <!-- Nội dung cho từng tab -->
-    <div class="tab-content mt-3" id="monitorTabsContent">
-      <!-- Tab URL -->
-      <div class="tab-pane fade show active" id="urlTab" role="tabpanel" aria-labelledby="url-tab">
-        <table class="table table-bordered">
-          <thead>
+  <!-- Nội dung cho từng tab -->
+  <div class="tab-content mt-3" id="monitorTabsContent">
+    <!-- Tab URL -->
+    <div class="tab-pane fade show active" id="urlTab" role="tabpanel" aria-labelledby="url-tab">
+      <div class="input-group mb-3">
+        <label for="search-input-url" class="input-group-text">Tìm kiếm</label>
+        <input type="search" name="search-input-url" id="search-input-url" placeholder="Nhập URL..." class="form-control">
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="filter-by">Lọc bởi: <span></span></div>
+        <div class="d-flex align-items-center gap-2">
+          <div class="result-count">Kết quả: <span>0</span></div>
+          <button class="btn btn-outline-secondary reset-table">&#x21BB;</button>
+        </div>
+      </div>
+      <div style="max-height: 70vh; overflow: auto;" class="table-container border-top border-dark">
+        <table class="table table-bordered table-hover border-dark">
+          <thead class="sticky-top table-dark">
             <tr>
-              <th>ID</th>
-              <th>URL</th>
-              <th>Trạng thái</th>
-              <th>Last Success</th>
-              <th>Theo dõi</th>
+              <th class="align-middle text-center">
+                <div>ID 
+                  <input type="button" value="⇅" class="bg-transparent border-0 sorting" data-sort-type="number" style="color: white;">
+                </div>
+              </th>
+              <th class="align-middle text-center">URL</th>
+              <th class="align-middle text-center">Trạng thái</th>
+              <th class="align-middle text-center">Last Success</th>
+              <th class="align-middle text-center">Tham chiếu</th>
+              <th class="align-middle text-center">Thao tác</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="urlTableBody">
             {% for u in url_list %}
             <tr id="url-{{ u.id }}">
               <td>{{ u.id }}</td>
               <td>{{ u.url }}</td>
               <td class="status">--</td>
               <td class="last_success">--</td>
-              <td>
+              <td class="align-middle text-center" style="white-space: nowrap; width: fit-content;">
+                <button type="button" 
+                        class="btn btn-info btn-sm external-tab-btn"
+                        title="Xóa URL khỏi danh sách theo dõi"
+                        style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                        data-target-tab="cve"
+                        onclick="getFilteredTable('url', '{{ u.id }}', 'cve', '{{ u.url }}')">
+                    CVE
+                </button>
+                <button type="button" 
+                        class="btn btn-info btn-sm external-tab-btn"
+                        title="Xóa URL khỏi danh sách theo dõi"
+                        style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                        data-target-tab="tech"
+                        onclick="getFilteredTable('url', '{{ u.id }}', 'tech', '{{ u.url }}')">
+                  Tech
+                </button>
+              </td>
+              <td class="" style="white-space: nowrap; width: fit-content;">
                 <!-- Bootstrap Switch -->
                 <div class="form-check form-switch">
                   <input 
@@ -49,9 +78,26 @@
                     type="checkbox" 
                     id="monitorSwitch-{{ u.id }}" 
                     onchange="toggleMonitor('{{ u.id }}')" 
-                    {% if u.monitoring_active == 1 %}checked{% endif %}
+                    {% if u.monitoring_active == 1 %} checked {% endif %}
+                    title="Theo dõi"
                   >
-                  <label class="form-check-label" for="monitorSwitch-{{ u.id }}">Theo dõi</label>
+                  <button type="button" 
+                          class="btn btn-outline-success btn-sm"
+                          id="manual-scan-button-{{ u.id }}"
+                          title="Xóa URL khỏi danh sách theo dõi"
+                          style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                          onclick="manualScan('{{ u.id }}')">
+                    Quét
+                  </button>
+                  <button type="button" 
+                          class="btn btn-outline-danger btn-sm"
+                          title="Xóa URL khỏi danh sách theo dõi"
+                          style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                          onclick="removeUrl('{{ u.url }}')">
+                      <span class="material-symbols-outlined" style="font-size:1em; padding-top: .2em;">
+                        delete
+                      </span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -59,123 +105,181 @@
           </tbody>
         </table>
       </div>
+    </div>
 
-      <!-- Tab Tech -->
-      <div class="tab-pane fade" id="techTab" role="tabpanel" aria-labelledby="tech-tab">
-        <table class="table table-bordered table-responsive">
-          <thead>
+    <!-- Tab Tech -->
+    <div class="tab-pane fade" id="techTab" role="tabpanel" aria-labelledby="tech-tab">
+      <div class="input-group mb-3">
+        <label for="search-input-tech" class="input-group-text">Tìm kiếm</label>
+        <input type="search" name="search-input-tech" id="search-input-tech" placeholder="Nhập công nghệ..." class="form-control">
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="filter-by">Lọc bởi: <span></span></div>
+        <div class="d-flex align-items-center gap-2">
+          <div class="result-count">Kết quả: <span>0</span></div>
+          <button class="btn btn-outline-secondary reset-table">&#x21BB;</button>
+        </div>
+      </div>
+      <div style="max-height: 70vh; overflow: auto;" class="table-container border-top border-dark">
+        <table class="table table-bordered table-hover border-dark table-responsive">
+          <thead class="sticky-top table-dark">
             <tr>
-              <th>ID</th>
-              <th>Tech</th>
-              <th>Version</th>
+              <th class="align-middle text-center">
+                <div>ID 
+                  <input type="button" value="⇅" class="bg-transparent border-0 sorting" data-sort-type="number" style="color: white;">
+                </div>
+              </th>
+              <th class="align-middle text-center">
+                <div>Tech 
+                  <input type="button" value="⇅" class="bg-transparent border-0 sorting" data-sort-type="string" style="color: white;">
+                </div>
+              </th>
+              <th class="align-middle text-center">Version</th>
+              <th class="align-middle text-center">Tham chiếu</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="techTableBody">
             {% for t in tech_list %}
             <tr>
               <td>{{ t.id }}</td>
               <td>{{ t.tech }}</td>
               <td>{{ t.version }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Tab CVE -->
-      <div class="tab-pane fade" id="cveTab" role="tabpanel" aria-labelledby="cve-tab">
-        <div style="overflow: scroll;">
-            <table class="table table-bordered">
-            <thead>
-                <tr>
-                <th>ID</th>
-                <th>CVE</th>
-                <th>Severity</th>
-                <th>Description</th>
-                <th>Vector</th>
-                <th>Base Score</th>
-                <th>Base Severity</th>
-                <th>Exploitability Score</th>
-                <th>Impact Score</th>
-                <th>Kết quả Nuclei</th>
-                <th>Thời gian update</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for cve in cve_list %}
-                <tr>
-                <td>{{ cve.id }}</td>
-                <td style="white-space: nowrap; width: fit-content;">{{ cve.cve }}</td>
-                <td>{{ cve.baseSeverity }}</td>
-                <td>
-                    <div style="max-height: 3em; line-height: 1.5em; overflow-y: auto;">
-                    {{ cve.description }}
-                    </div>
-                </td>
+              <td class="align-middle text-center" style="white-space: nowrap; width: fit-content;">
+                <button type="button" 
+                        class="btn btn-info btn-sm external-tab-btn"
+                        title="Xóa URL khỏi danh sách theo dõi"
+                        style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                        data-target-tab="url"
+                        onclick="getFilteredTable('tech', '{{ t.id }}', 'url', '{{ t.tech }}')">
+                    URL
+                </button>
+                <button type="button" 
+                        class="btn btn-info btn-sm external-tab-btn"
+                        title="Xóa URL khỏi danh sách theo dõi"
+                        style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                        data-target-tab="cve"
+                        onclick="getFilteredTable('tech', '{{ t.id }}', 'cve', '{{ t.tech }}')">
+                    CVE
+                </button>
               </td>
-                <td>{{ cve.vectorString }}</td>
-                <td>{{ cve.baseScore }}</td>
-                <td>{{ cve.baseSeverity }}</td>
-                <td>{{ cve.exploitabilityScore }}</td>
-                <td>{{ cve.impactScore }}</td>
-                <td>{{ cve.nucleiResult }}</td>
-                <td>{{ cve.updated_at }}</td>
-                {% endfor %}
-            </tbody>
-            </table>
-        </div>
-      </div>
-
-      <!-- Tab URL_Tech -->
-      <div class="tab-pane fade" id="urlTechTab" role="tabpanel" aria-labelledby="urlTech-tab">
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>URL_ID</th>
-              <th>TECH_ID</th>
-              <th>Detected_At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ut in url_tech_list %}
-            <tr>
-              <td>{{ ut.id }}</td>
-              <td>{{ ut.url_id }}</td>
-              <td>{{ ut.tech_id }}</td>
-              <td>{{ ut.detected_at }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Tab Tech_CVE -->
-      <div class="tab-pane fade" id="techCveTab" role="tabpanel" aria-labelledby="techCve-tab">
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>TECH_ID</th>
-              <th>CVE_ID</th>
-              <th>Detected_At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for tc in tech_cve_list %}
-            <tr>
-              <td>{{ tc.id }}</td>
-              <td>{{ tc.tech_id }}</td>
-              <td>{{ tc.cve_id }}</td>
-              <td>{{ tc.detected_at }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
+
+    <!-- Tab CVE -->
+    <div class="tab-pane fade" id="cveTab" role="tabpanel" aria-labelledby="cve-tab">
+      <div class="input-group mb-3">
+        <label for="search-input-cve" class="input-group-text">Tìm kiếm</label>
+        <input type="search" name="search-input-cve" id="search-input-cve" placeholder="Nhập CVE..." class="form-control">
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="filter-by">Lọc bởi: <span></span></div>
+        <div class="d-flex align-items-center gap-2">
+          <div class="result-count">Kết quả: <span>0</span></div>
+          <button class="btn btn-outline-secondary reset-table">&#x21BB;</button>
+        </div>
+      </div>
+      <div style="max-height: 80vh; overflow: auto;" class="table-container border-top border-dark">
+        <table class="table table-bordered table-hover border-dark">
+          <thead class="sticky-top table-dark">
+            <tr>
+              <th class="align-middle text-center">
+                <div>ID 
+                  <input type="button" value="⇅" class="bg-transparent border-0 sorting" data-sort-type="number" style="color: white;">
+                </div>
+              </th>
+              <th class="align-middle text-center">
+                <div>CVE
+                  <input type="button" value="⇅" class="bg-transparent border-0 sorting" data-sort-type="cve" style="color: white;">
+                </div>
+              </th>
+              <th class="align-middle text-center">
+                <div>Severity   
+                  <input type="button" value="⇅" class="bg-transparent border-0 sorting" data-sort-type="severity" style="color: white;">
+                </div>
+              </th>
+              <th class="align-middle text-center">Chi tiết</th>
+              <th class="align-middle text-center">Kết quả Nuclei</th>
+              <th class="align-middle text-center">Thời gian update</th>
+              <th class="align-middle text-center">Tham chiếu</th>
+            </tr>
+          </thead>
+          <tbody id="cveTableBody">
+            {% for cve in cve_list %}
+            <tr data-cve-id="{{ cve.id }}">
+              <td>{{ cve.id }}</td>
+              <td style="white-space: nowrap; width: fit-content;">
+                <a href="https://nvd.nist.gov/vuln/detail/{{ cve.cve }}" target="_blank">
+                  {{ cve.cve }}
+                </a>
+              </td>
+              <td>{{ cve.baseSeverity }}</td>
+              <td class="text-center">
+                <button type="button" class="btn btn-link detail-btn" data-bs-toggle="modal" data-bs-target="#cveDetailModal"
+                  data-description="{{ cve.description }}"
+                  data-vector="{{ cve.vectorString }}"
+                  data-base-score="{{ cve.baseScore }}"
+                  data-exploitability-score="{{ cve.exploitabilityScore }}"
+                  data-impact-score="{{ cve.impactScore }}">
+                  ⧉
+                </button>
+              </td>
+              <td>{{ cve.nucleiResult }}</td>
+              <td>{{ cve.updated_at }}</td>
+              <td class="align-middle text-center" style="white-space: nowrap; width: fit-content;">
+                <button type="button" 
+                        class="btn btn-info btn-sm external-tab-btn"
+                        title="Xóa URL khỏi danh sách theo dõi"
+                        style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                        data-target-tab="url"
+                        onclick="getFilteredTable('cve', '{{ cve.id }}', 'url', '{{ cve.cve }}')">
+                    URL
+                </button>
+                <button type="button" 
+                        class="btn btn-info btn-sm external-tab-btn"
+                        title="Xóa URL khỏi danh sách theo dõi"
+                        style="--bs-btn-padding-y: .2rem; --bs-btn-padding-x: .4rem; --bs-btn-font-size: .75rem;"
+                        data-target-tab="tech"
+                        onclick="getFilteredTable('cve', '{{ cve.id }}', 'tech', '{{ cve.cve }}')">
+                  Tech
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
+
+<!-- Modal Chi tiết CVE -->
+<div class="modal fade" id="cveDetailModal" tabindex="-1" aria-labelledby="cveDetailModalLabel">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cveDetailModalLabel">Chi tiết CVE</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-description"></p>
+        <p id="modal-vector"></p>
+        <p id="modal-baseScore"></p>
+        <p id="modal-exploitabilityScore"></p>
+        <p id="modal-impactScore"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+  /* -------------------- SOCKET & MONITOR -------------------- */
   var socket = io();
   socket.on('status_update', function(data) {
       var row = document.getElementById('url-' + data.url_id);
@@ -185,15 +289,20 @@
           statusCell.innerText = data.url_status;
           if (data.last_success_time)
             lastSuccessCell.innerText = data.last_success_time;
-          if (data.monitoring_active == 1) {
-            document.getElementById('monitorSwitch-' + data.url_id).checked = true;
-          } else {
-            document.getElementById('monitorSwitch-' + data.url_id).checked = false;
+          
+          const switchEl = document.getElementById('monitorSwitch-' + data.url_id);
+          if (switchEl) {
+            switchEl.checked = !!data.monitoring_active;
           }
       }
   });
 
+  let monitorLock = false;
+
   function toggleMonitor(url_id) {
+    if (monitorLock) return; // Nếu đang xử lý yêu cầu khác, bỏ qua yêu cầu này
+    monitorLock = true;
+
     const checked = document.getElementById('monitorSwitch-' + url_id).checked;
     if (checked) {
       startMonitor(url_id);
@@ -203,25 +312,211 @@
   }
 
   function stopMonitor(url_id) {
-    fetch('/stop_monitor/' + url_id, { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                console.log("Đã dừng theo dõi URL " + url_id);
-                document.getElementById('url-' + url_id).querySelector('.status').innerHTML = "Đã dừng";
-            }
-        });
+    fetch('/stop_monitor/' + url_id, { method: 'GET' })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log("Đã dừng theo dõi URL " + url_id);
+          document.getElementById('url-' + url_id).querySelector('.status').innerText = "Đã dừng";
+        }
+        monitorLock = false; // Mở khóa sau khi xử lý xong
+      })
+      .catch(error => {
+        console.log(error);
+        monitorLock = false; // Mở khóa nếu có lỗi
+      });
   }
 
   function startMonitor(url_id) {
-    parseInt(url_id);
-    fetch('/start_monitor/' + url_id, { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                console.log("Đã khởi động lại theo dõi URL " + url_id);
-            }
-        });
+    fetch('/start_monitor/' + url_id, { method: 'GET' })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log("Đã khởi động lại theo dõi URL " + url_id);
+        }
+        monitorLock = false; // Mở khóa sau khi xử lý xong
+      })
+      .catch(error => {
+        console.log(error);
+        monitorLock = false; // Mở khóa nếu có lỗi
+      });
   }
+
+  function manualScan(url_id) {
+    const button = document.getElementById('manual-scan-button-' + url_id);
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; 
+
+    fetch('/manual-scan/' + url_id, { method: 'GET' })
+      .then(response => {
+        if (response.ok) {
+          button.innerHTML = 'Quét';
+          location.reload();
+        } else {
+          button.innerHTML = 'Quét'; 
+          console.error('Lỗi khi quét thủ công:', response.statusText);
+        }
+      })
+      .catch(error => {
+        button.innerHTML = 'Quét'; 
+        console.error('Lỗi khi quét thủ công:', error);
+      });
+  }
+
+  function removeUrl(url) {
+    if(confirm("Chắc chắn xóa? Thao tác này không thể hoàn tác.")) {
+      fetch('/remove_from_watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        body: url
+      })
+      .then(response => response.text())
+      .then(text => {
+        alert(text);
+        location.reload();
+      })
+      .catch(error => { console.log(error); });
+    }
+  }
+
+  /* -------------------- SEARCH FUNCTIONALITY -------------------- */
+  document.querySelectorAll("input[type='search']").forEach(search => {
+    search.addEventListener('input', (e) => {
+      let keywords = e.target.value.toLowerCase();
+      let tabPane = search.closest('.tab-pane');
+      let table = tabPane.querySelector('table');
+      let rows = table.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        // Tìm kiếm dựa vào ô thứ 2 (cột URL, Tech hoặc CVE)
+        let cell = row.querySelector('td:nth-child(2)');
+        if (cell && cell.innerText.toLowerCase().includes(keywords)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+      updateResultCount();
+    });
+  });
+
+  /* -------------------- SORTING FUNCTIONALITY -------------------- */
+  const compareRules = {
+    number: (a, b) => Number(a) - Number(b),
+    string: (a, b) => a.localeCompare(b),
+    severity: (a, b) => {
+      const severityRanking = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
+      return severityRanking[a.trim().toLowerCase()] - severityRanking[b.trim().toLowerCase()];
+    },
+    cve: (a, b) => {
+      const [, yearA, idA] = a.match(/CVE-(\d+)-(\d+)/);
+      const [, yearB, idB] = b.match(/CVE-(\d+)-(\d+)/);
+      return yearA - yearB || idA - idB;
+    }
+  };
+
+  document.querySelectorAll('.sorting').forEach(sort => {
+    sort.addEventListener("click", function() {
+      // Reset trạng thái sort của các cột khác
+      document.querySelectorAll('.sorting').forEach(other => {
+        if (other !== sort) { other.dataset.direction = "ascending"; }
+      });
+      
+      let th = sort.closest('th');
+      let tr = th.parentElement;
+      let columnIndex = Array.from(tr.children).indexOf(th);
+      let table = th.closest('table');
+      let tbody = table.querySelector('tbody');
+      let rows = Array.from(tbody.querySelectorAll('tr'));
+      let sortType = sort.getAttribute('data-sort-type');
+      let compareFn = compareRules[sortType];
+      if (!compareFn) { console.error("Không tìm thấy rule so sánh cho kiểu:", sortType); return; }
+      
+      let direction = sort.dataset.direction || "ascending";
+      let arrowDirection = (direction == 'ascending') ? '↑' : '↓';
+      sort.setAttribute('value', arrowDirection);
+      let multiplier = (direction === "ascending") ? 1 : -1;
+      
+      rows.sort((rowA, rowB) => {
+        let cellA = rowA.querySelectorAll('td')[columnIndex].innerText || '';
+        let cellB = rowB.querySelectorAll('td')[columnIndex].innerText || '';
+        return multiplier * compareFn(cellA, cellB);
+      });
+      
+      rows.forEach(row => tbody.appendChild(row));
+      sort.dataset.direction = (direction === "ascending") ? "descending" : "ascending";
+      updateResultCount();
+    });
+  });
+
+  function updateResultCount() {
+    document.querySelectorAll('.tab-pane').forEach(tabPane => {
+      let table = tabPane.querySelector('table');
+      if (table) {
+        let rows = table.querySelectorAll('tbody tr');
+        let visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
+        let resultCount = tabPane.querySelector('.result-count span');
+        if (resultCount) { resultCount.innerText = visibleRows.length; }
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', updateResultCount);
+
+  /* -------------------- EXTERNAL TAB BUTTONS -------------------- */
+  document.querySelectorAll('.external-tab-btn').forEach(btn => {
+    btn.addEventListener("click", function() {
+      let internalBtnId = btn.getAttribute('data-target-tab') + "-tab";
+      let tabTrigger = new bootstrap.Tab(document.getElementById(internalBtnId));
+      tabTrigger.show();
+    });
+  });
+
+  /* -------------------- RESET TABLE FUNCTIONALITY -------------------- */
+  document.querySelectorAll(".reset-table").forEach(btn => {
+    btn.addEventListener("click", function() {
+      let tab = btn.closest(".tab-pane");
+      let table = tab.querySelector("table");
+      table.querySelectorAll("tr").forEach(row => { row.removeAttribute("style"); });
+      tab.querySelector('.filter-by > span').innerText = "";
+      updateResultCount();
+    });
+  });
+
+  function getFilteredTable(type, id, target, name) {
+    let endpoint = '/get_' + target + '_list/' + type + '/' + id;
+    fetch(endpoint, { method: 'GET' })
+    .then(response => response.json())
+    .then(data => {
+        let list_id = data.id;
+        let table = document.getElementById(target + 'TableBody');
+        let tab = table.closest('.tab-pane');
+        tab.querySelector('.reset-table').click();
+        table.querySelectorAll('tr').forEach(row => {
+          if (!list_id.includes(parseInt(row.querySelectorAll('td')[0].innerHTML))) {
+            row.style.display = "none";
+          }
+        });
+        let filterBy = tab.querySelector('.filter-by > span');
+        filterBy.innerHTML = type.toUpperCase() + ': ' + name;
+        updateResultCount();
+    });
+  }
+
+  /* -------------------- MODAL UPDATE FOR CVE DETAILS -------------------- */
+  var cveDetailModal = document.getElementById('cveDetailModal');
+  cveDetailModal.addEventListener('show.bs.modal', function (event) {
+    var button = event.relatedTarget;
+    var description = button.getAttribute('data-description');
+    var vector = button.getAttribute('data-vector');
+    var baseScore = button.getAttribute('data-base-score');
+    var exploitabilityScore = button.getAttribute('data-exploitability-score');
+    var impactScore = button.getAttribute('data-impact-score');
+    
+    cveDetailModal.querySelector('#modal-description').innerHTML = "<b>Mô tả: </b>" + description;
+    cveDetailModal.querySelector('#modal-vector').innerHTML = "<b>Vector: </b>" + vector;
+    cveDetailModal.querySelector('#modal-baseScore').innerHTML = "<b>Base Score: </b>" + baseScore;
+    cveDetailModal.querySelector('#modal-exploitabilityScore').innerHTML = "<b>Exploitability Score: </b>" + exploitabilityScore;
+    cveDetailModal.querySelector('#modal-impactScore').innerHTML = "<b>Impact Score: </b>" + impactScore;
+  });
 </script>
 {% endblock %}
+
+

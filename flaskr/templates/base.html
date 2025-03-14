@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Tech Scan{% endblock %} - Flaskr</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
       <div class="container-fluid">
         <a class="navbar-brand" href="{{ url_for('scan.tech_scan') }}">Flaskr</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -21,8 +23,21 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             {% if g.user %}
+              <li class="nav-item dropstart" style="position: relative;">
+                <a class="nav-link dropdown-toggle" id="notificationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="material-icons-outlined">notifications</i>
+                  <span id="notificationCount" class="badge bg-danger">0</span>
+                </a>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" 
+                    aria-labelledby="notificationDropdown" 
+                    id="notificationList"
+                    style="max-height:20vh; overflow: auto;">
+                </ul>
+              </li>
               <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('monitor.monitoring') }}">Monitor</a>
+                <a class="nav-link" href="{{ url_for('monitor.monitoring') }}">Monitor
+                </a>
               </li>
               <li class="nav-item">
                 <a class="nav-link" href="{{ url_for('scan.tech_scan') }}">Scan</a>
@@ -58,5 +73,211 @@
       {% endfor %}
       {% block content %}{% endblock %}
     </section>
+    
+    <!-- Modal cho thông báo 'modified' -->
+    <div class="modal fade" id="modifiedModal" tabindex="-1" aria-labelledby="modifiedModalLabel">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="d-block">
+              <h5 class="modal-title" id="modifiedModalTargetTitle"></h5>
+              <h5 class="modal-title" id="modifiedModalLabel"></h5>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body" id="modifiedModalBody">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </body>
+  <script>
+    var socket = io();
+  
+    // Mảng lưu các thông báo chưa đọc (mỗi thông báo có id duy nhất, alert_type, title, content,...)
+    var notifications = [];
+    var unreadCount = 0;
+  
+    // Hàm cập nhật badge số thông báo chưa đọc
+    function updateNotificationCount() {
+      if (unreadCount == 0) {
+        document.getElementById('notificationCount').style.display = "none";
+      } else {
+        document.getElementById('notificationCount').style.display = "inline-block";
+        document.getElementById('notificationCount').innerText = unreadCount;
+      }
+    }
+  
+    function createNotificationItem(data) {
+      var a = document.createElement('a');
+      a.href = "#";
+      a.className = "dropdown-item notification-item";
+      if (!data.is_read) {
+        a.classList.add("unread");
+      }
+      if (data.alert_type === 'new') {
+        a.classList.add("new");
+        a.innerHTML = "<i class='material-icons-outlined' style='color: green;'>add_circle</i> " + data.title;
+      } else if (data.alert_type === 'modified') {
+        a.classList.add("modified");
+        a.innerHTML = "<i class='material-icons-outlined' style='color: orange;'>edit</i> " + data.title;
+      } else {
+        a.innerHTML = data.title;
+      }
+      // Lưu alert id để cập nhật is_read khi hover
+      a.dataset.alertId = data.alert_id;
+    
+      a.addEventListener("mouseover", function() {
+        if (a.classList.contains("unread")) {
+          a.classList.add("read");
+          a.classList.remove("unread");
+          // Gửi AJAX để cập nhật is_read của alert đó
+          var alertId = a.dataset.alertId;
+          if (alertId) {
+            fetch('/mark_alert_read/' + alertId, { method: 'GET' });
+            unreadCount--;
+            updateNotificationCount();
+          }
+        }
+      });
+      
+      a.addEventListener("click", function(e) {
+        if (data.alert_type === 'new') {
+          window.location.href = "/monitor#";
+          var cveTabEl = document.getElementById("cve-tab");
+          var tabTrigger = new bootstrap.Tab(cveTabEl);
+          tabTrigger.show();
+          filterCVENew(data.content);
+        } else if (data.alert_type === 'modified') {
+          showModifiedModal(data);
+        }
+      });
+      
+      return a;
+    }
+    
+  
+    // Xử lý sự kiện Socket.IO khi nhận thông báo từ server
+    socket.on('notification_push', function(data) {
+      console.log("Nhận notification:", data);
+      // data: {url_id, url, alert_type, title, content}
+      var notifItem = createNotificationItem(data);
+      // Append vào dropdown
+      let notificationList = document.getElementById('notificationList');
+      notificationList.insertBefore(notifItem, notificationList.firstChild);
+      // Tăng số thông báo chưa đọc
+      unreadCount++;
+      updateNotificationCount();
+    });
+  
+    // Tìm CVE mới được thêm
+    function filterCVENew(content) {
+      let table = document.getElementById('cveTableBody');
+      rows = table.querySelectorAll('tr').forEach(row => {
+        if (!content.includes(parseInt(row.getAttribute('data-cve-id')))) {
+          row.style.display = "none";
+        }
+      })
+      updateResultCount();
+    }
+  
+    // Ví dụ hàm mở modal cho thông báo 'modified'
+    function showModifiedModal(data) {
+      // data.content là chuỗi JSON chứa danh sách thay đổi cho các CVE
+      try {
+        var changesList = JSON.parse(data.content);
+      } catch (err) {
+        console.error("Parse JSON error:", err);
+        return;
+      }
+
+      var modalTargetTitle = document.getElementById('modifiedModalTargetTitle');
+      var modalTitle = document.getElementById("modifiedModalLabel");
+      if (changesList.length === 1) {
+        modalTitle.innerText = changesList[0].cve;
+      } else {
+        modalTitle.innerText = "Chỉnh sửa CVE (" + changesList.length + " bản ghi)";
+      }
+      modalTargetTitle.innerText = "URL: " + data.url;
+    
+      // Xử lý modal body
+      var modalBody = document.getElementById("modifiedModalBody");
+      modalBody.innerHTML = "";  // Xóa nội dung cũ
+    
+      // Với mỗi CVE, tạo bảng chi tiết thay đổi
+      changesList.forEach(function(item) {
+        // item: { cve: "CVE-XXXX", changes: { field1: {old:..., new:...}, field2: {...} } }
+        var card = document.createElement("div");
+        card.className = "card mb-3";
+        var cardHeader = document.createElement("div");
+        cardHeader.className = "card-header";
+        cardHeader.innerText = item.cve;  // tên CVE
+        card.appendChild(cardHeader);
+    
+        var table = document.createElement("table");
+        table.className = "table table-bordered mb-0";
+        // Tạo header table với các cột: Field, Old, New
+        var thead = document.createElement("thead");
+        var headerRow = document.createElement("tr");
+        ["Field", "Old", "New"].forEach(function(col) {
+          var th = document.createElement("th");
+          // Sử dụng lớp w-33 để chia đều (hoặc dùng custom CSS)
+          th.className = "w-33";
+          th.innerText = col;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+    
+        var tbody = document.createElement("tbody");
+        // Với mỗi field trong item.changes
+        for (var field in item.changes) {
+          var row = document.createElement("tr");
+          var cellField = document.createElement("td");
+          cellField.innerText = field;
+          var cellOld = document.createElement("td");
+          cellOld.innerText = item.changes[field].old;
+          var cellNew = document.createElement("td");
+          cellNew.innerText = item.changes[field].new;
+          row.appendChild(cellField);
+          row.appendChild(cellOld);
+          row.appendChild(cellNew);
+          tbody.appendChild(row);
+        }
+        table.appendChild(tbody);
+        card.appendChild(table);
+        modalBody.appendChild(card);
+      });
+      // Hiển thị modal
+      var modifiedModal = new bootstrap.Modal(document.getElementById("modifiedModal"));
+      modifiedModal.show();
+    }
+    $(document).ready(function() {
+      $.ajax({
+        url: '/load_notifications',
+        method: 'GET',
+        success: function(data) {
+          const notificationList = document.getElementById('notificationList');
+          const unreadCountElement = document.getElementById('notificationCount');
+          let unread = 0;
+          data.forEach(alert => {
+            let newNotification = createNotificationItem(alert);
+            notificationList.prepend(newNotification);
+            if (!alert.is_read) {
+              unread++;
+            }
+          });
+          unreadCount = unread;
+          updateNotificationCount();
+        },
+        error: function(error) {
+          console.error('Lỗi khi tải thông báo:', error);
+        }
+      });
+    });
+  </script>  
 </html>

@@ -50,6 +50,8 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
 
             last_status = current_status
             err_count = 0
+            if stop_event.is_set():
+                break
             socketio.emit(emit_event, {
                 'url_id': temp_id,
                 'url': url,
@@ -90,5 +92,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                     except Exception as ex:
                         print("Lỗi cập nhật DB: ", ex)
                 stop_event.set()
-        if stop_event.wait(10):
+        if stop_event.is_set():
+            break
+        if stop_event.wait(10): # Thời gian chờ giữa các vòng lặp
             break

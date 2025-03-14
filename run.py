@@ -3,8 +3,7 @@ from flaskr.monitor import start_watchlist_threads
 
 app = create_app()
 
-with app.app_context():
-    start_watchlist_threads()
-
 if __name__ == '__main__':
+    with app.app_context():
+        start_watchlist_threads()
     socketio.run(app, debug=True)

@@ -3,6 +3,7 @@ import json
 import datetime
 import time
 import logging
+import subprocess
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
@@ -10,6 +11,8 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 from .data_download import modified_recent_pull, complete_pull
 from .cve_scan import indexing_modified_recent_cve, indexing_full_cve
 from .cpe_scan import indexing_cpe
+from flaskr.monitor import auto_scan
+from flask import current_app
 
 # Đặt múi giờ Haloi (GMT+7)
 gmt7 = datetime.timezone(datetime.timedelta(hours=7))
@@ -83,12 +86,18 @@ def next_run_time_modified_recent_cron():
 # --- Các hàm job ---
 def modified_recent_update():
     start = time.time()
+    app = current_app._get_current_object()
     try:
         print("[INFO] Bắt đầu cập nhật dữ liệu (modified/recent).")
         modified_recent_pull()
         
         print("[INFO] Bắt đầu lập chỉ mục dữ liệu (modified/recent).")
         indexing_modified_recent_cve()
+
+        print("[INFO] Tự động quét lại!!!")
+        if app:
+            with app.app_context():
+                auto_scan()
     except Exception as e:
         logger.error(f"Lỗi trong modified_recent_update: {e}")
         return  # Nếu có lỗi, không cập nhật next_run
@@ -106,6 +115,11 @@ def complete_update():
         
         print("[INFO] Bắt đầu lập chỉ mục dữ liệu CPE.")
         indexing_cpe()
+
+        print("[INFO] Bắt đầu cập nhật template Nuclei")
+        subprocess.run(['nuclei', '-ut'])
+
+        print("[INFO] Tự động quét lại!!!")
     except Exception as e:
         logger.error(f"Lỗi trong complete_update: {e}")
         return

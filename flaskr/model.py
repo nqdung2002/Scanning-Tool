@@ -39,6 +39,7 @@ class Tech(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tech = db.Column(db.String(128), nullable=False)
     version = db.Column(db.String(64), nullable=True)
+    cpe = db.Column(db.Text, nullable=False)
 
     def __repr__(self):
         return f'<Tech {self.tech} {self.version}>'
@@ -61,6 +62,24 @@ class URL_Tech(db.Model):
     url = db.relationship('URL', backref=db.backref('tech_associations', lazy=True))
     tech = db.relationship('Tech', backref=db.backref('url_associations', lazy=True))
     
+class Notifications(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    alert_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    channel = db.Column(db.Enum('email', 'telegram', name='channel_enum'), nullable=False)
+    status = db.Column(db.Enum('sent', 'failed', name='status_enum'), nullable=False)
+    sent_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+class Alerts(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    url_id = db.Column(db.Integer, db.ForeignKey('url.id'), nullable=False)
+    alert_type = db.Column(db.Enum('new', 'modified', name='type_enum'), nullable=False)
+    title = db.Column(db.Text, nullable=False)
+    content = db.Column(db.JSON)
+    notified_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    is_read = db.Column(db.Boolean, default=False)
+
+
 
 
 
