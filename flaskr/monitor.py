@@ -1,9 +1,11 @@
 import threading
 import json
+from flaskr import create_app
 from flask import Blueprint, current_app, render_template, request, jsonify
 from flaskr.auth import login_required
 from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech, Alerts
 from flaskr import db, socketio
+from .function.send_email import send_mail
 from flaskr.function.url_monitor import check_url_status
 from flaskr.function.mode_scan import manual_scan as mscan
 
@@ -295,11 +297,11 @@ def manual_scan(url_id):
         title = f"Phát hiện { len(new_cves) } CVE mới!"
         alert_type = 'new'
         cve_id_list = []
-        for cve, tech_id in new_cves:
-            cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult = cve
-            cve_id = add_cve(cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
-            cve_id_list.append(cve_id)
-            tech_cve_association(tech_id, cve_id)
+        # for cve, tech_id in new_cves:
+        #     cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult = cve
+        #     cve_id = add_cve(cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
+        #     cve_id_list.append(cve_id)
+        #     tech_cve_association(tech_id, cve_id)
         alert_id = add_alert(url_id=url_id, alert_type=alert_type, title=title, content=cve_id_list)
         db.session.commit()
         socketio.emit('notification_push', {
@@ -311,6 +313,17 @@ def manual_scan(url_id):
             'content': cve_id_list 
         })
         print(title)
+    
+        # Gửi email khi phát hiện cve mới
+        subject = title
+        recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+        send_mail(
+            subject=subject,
+            recipients=recipients,
+            template='mail/email_new_cve.html',
+            title=subject,
+            cves=new_cves
+        )
     if modified_cves:
         title = f"Phát hiện { len(modified_cves) } CVE được chỉnh sửa!"
         change_list = []
@@ -324,8 +337,8 @@ def manual_scan(url_id):
             })
             cve_instance = CVE.query.filter_by(cve=cve_name).first()
             # Update các trường thay đổi vào cơ sở dữ liệu
-            for field, values in change.items():
-                setattr(cve_instance, field, values['new'])
+            # for field, values in change.items():
+            #     setattr(cve_instance, field, values['new'])
         content = json.dumps(change_list, ensure_ascii=False)
         alert_type = 'modified'
         alert_id = add_alert(url_id=url_id, alert_type=alert_type, title=title, content=content)
@@ -339,12 +352,22 @@ def manual_scan(url_id):
         'title': title,
         'content': content
         })
+
+        # Gửi email khi phát hiện cve được chỉnh sửa
+        subject = title
+        recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+        send_mail(
+            subject=subject,
+            recipients=recipients,
+            template='mail/email_modified_cve.html',
+            title=subject,
+            modifications=change_list
+        )
     return '200', 200
 
 @bp.route('/load_notifications', methods=['GET'])
 @login_required
 def load_notifications():
-    # Sắp xếp từ dưới lên: có thể dùng order_by(Alerts.notified_at.asc()) nếu bạn muốn alert cũ ở đầu
     alerts = Alerts.query.all()
     alerts_data = [{
         'alert_id': alert.id,
@@ -365,31 +388,32 @@ def set_is_read(alert_id):
     return '200', 200
 #####################################################################################
 
-
+# Quét tự động 
+#####################################################################################
 def auto_scan():
-    """
-    Hàm auto_scan sẽ duyệt qua từng URL trong cơ sở dữ liệu,
-    gọi manual_scan cho từng URL và xử lý kết quả:
-      - Nếu có CVE mới, tạo alert 'new' và phát thông báo qua Socket.IO.
-      - Nếu có CVE được chỉnh sửa, cập nhật record, tạo alert 'modified' và phát thông báo.
-    """
-    app = current_app._get_current_object()
+    try:
+        from flask import current_app
+        app = current_app._get_current_object()
+    except RuntimeError:
+        app = create_app()
+    
     with app.app_context():
+        # Lấy tất cả URL trong DB
         urls = URL.query.all()
         for url_obj in urls:
+            print(f'Bắt đầu quét" { url_obj.url }')
             new_cves, modified_cves = mscan(url_obj.id, app)
+            
             # Xử lý CVE mới
             if new_cves:
-                title = f"Phát hiện {len(new_cves)} CVE mới tại URL {url_obj.url}"
+                title = f"Phát hiện {len(new_cves)} CVE mới tại {url_obj.url}"
                 alert_type = 'new'
-                cve_id_list = []
+                new_cve_ids = []
                 for cve_info, tech_id in new_cves:
-                    # cve_info là tuple chứa thông tin CVE
-                    # Nếu record đã tồn tại, add_cve sẽ trả về id của record hiện có
                     cve_id = add_cve(*cve_info)
-                    cve_id_list.append(cve_id)
+                    new_cve_ids.append(cve_id)
                     tech_cve_association(tech_id, cve_id)
-                alert_id = add_alert(url_obj.id, alert_type, title, cve_id_list)
+                alert_id = add_alert(url_obj.id, alert_type, title, new_cve_ids)
                 db.session.commit()
                 socketio.emit('notification_push', {
                     'alert_id': alert_id,
@@ -397,15 +421,27 @@ def auto_scan():
                     'url': url_obj.url,
                     'alert_type': alert_type,
                     'title': title,
-                    'content': cve_id_list
+                    'content': new_cve_ids
                 })
+                
+                # Gửi email khi phát hiện cve mới
+                subject = title
+                recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+                send_mail(
+                    subject=subject,
+                    recipients=recipients,
+                    template='mail/email_new_cve.html',
+                    title=subject,
+                    cves=new_cves
+                )
+            
             # Xử lý CVE được chỉnh sửa
             if modified_cves:
-                title = f"Phát hiện {len(modified_cves)} CVE được chỉnh sửa tại URL {url_obj.url}"
+                title = f"Phát hiện {len(modified_cves)} CVE được chỉnh sửa tại {url_obj.url}"
+                alert_type = 'modified'
                 change_list = []
                 for cve_info, changes in modified_cves:
-                    # Lấy tên CVE từ tuple
-                    cve_name = cve_info[0] if isinstance(cve_info, (list, tuple)) else cve_info
+                    cve_name = cve_info[0] if isinstance(cve_info, (tuple, list)) else cve_info
                     change_list.append({
                         "cve": cve_name,
                         "changes": changes
@@ -415,7 +451,6 @@ def auto_scan():
                         for field, values in changes.items():
                             setattr(cve_instance, field, values['new'])
                 content = json.dumps(change_list, ensure_ascii=False)
-                alert_type = 'modified'
                 alert_id = add_alert(url_obj.id, alert_type, title, content)
                 db.session.commit()
                 socketio.emit('notification_push', {
@@ -426,4 +461,17 @@ def auto_scan():
                     'title': title,
                     'content': content
                 })
+                
+                # Gửi email khi phát hiện cve được chỉnh sửa
+                subject = title
+                recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+                send_mail(
+                    subject=subject,
+                    recipients=recipients,
+                    template='mail/email_modified_cve.html',
+                    title=subject,
+                    modifications=modified_cves
+                )
+        db.session.remove()
+#####################################################################################
     

@@ -14,7 +14,7 @@ from .cpe_scan import indexing_cpe
 from flaskr.monitor import auto_scan
 from flask import current_app
 
-# Đặt múi giờ Haloi (GMT+7)
+# Múi giờ Haloi
 gmt7 = datetime.timezone(datetime.timedelta(hours=7))
 
 # Biến toàn cục để lưu scheduler
@@ -86,7 +86,6 @@ def next_run_time_modified_recent_cron():
 # --- Các hàm job ---
 def modified_recent_update():
     start = time.time()
-    app = current_app._get_current_object()
     try:
         print("[INFO] Bắt đầu cập nhật dữ liệu (modified/recent).")
         modified_recent_pull()
@@ -95,9 +94,7 @@ def modified_recent_update():
         indexing_modified_recent_cve()
 
         print("[INFO] Tự động quét lại!!!")
-        if app:
-            with app.app_context():
-                auto_scan()
+        auto_scan()
     except Exception as e:
         logger.error(f"Lỗi trong modified_recent_update: {e}")
         return  # Nếu có lỗi, không cập nhật next_run
@@ -120,6 +117,7 @@ def complete_update():
         subprocess.run(['nuclei', '-ut'])
 
         print("[INFO] Tự động quét lại!!!")
+        auto_scan()
     except Exception as e:
         logger.error(f"Lỗi trong complete_update: {e}")
         return

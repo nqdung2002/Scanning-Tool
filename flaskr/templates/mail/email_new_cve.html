@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+      .container { background-color: #ffffff; padding: 20px; margin: 30px auto; width: 80%; max-width: 600px; border-radius: 8px; }
+      h2 { color: #333333; }
+      .cve-item { border-bottom: 1px solid #ddd; padding: 10px 0; }
+      .cve-item:last-child { border-bottom: none; }
+      .footer { text-align: center; font-size: 12px; color: #777777; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>{{ title }}</h2>
+      <p>Xin chào,</p>
+      <p>Hệ thống của bạn vừa phát hiện các CVE mới với thông tin chi tiết như sau:</p>
+      {% for cve, techid in cves %}
+      <div class="cve-item">
+        <h3>{{ cve[0] }}</h3>
+        <p><strong>CWE:</strong> {{ cve[1] }}</p>
+        <p>{{ cve[2] }}</p>
+        <p><strong>Severity:</strong> {{ cve[5] }} (Score: {{ cve[4] }})</p>
+      </div>
+      {% endfor %}
+      <p>Vui lòng kiểm tra và xử lý kịp thời.</p>
+      <div class="footer">
+        <p>Trân trọng,<br>Đội ngũ bảo mật</p>
+      </div>
+    </div>
+  </body>
+</html>

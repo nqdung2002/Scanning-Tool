@@ -4,10 +4,12 @@ from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_mail import Mail
 
 socketio = SocketIO()
 db = SQLAlchemy()
 migrate = Migrate()
+mail = Mail()
 
 def create_app(test_config=None):
     # Tạo và cấu hình ứng dụng
@@ -20,7 +22,6 @@ def create_app(test_config=None):
 
     else:
         app.config.from_mapping(test_config)
-
 
     # Đảm bảo thư mục instance tồn tại
     try:
@@ -41,13 +42,14 @@ def create_app(test_config=None):
     migrate.init_app(app, db)
     with app.app_context():
         db.create_all()
+        mail = Mail(app)
+        # Khởi tạo SocketIO
+        socketio.init_app(app)
+        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+            from .function.data_auto_update import start_scheduler
+            start_scheduler()
 
-    # Khởi tạo SocketIO
-    socketio.init_app(app)
 
     # Khởi chạy scheduler cập nhật tự động ở tiến trình con
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from .function.data_auto_update import start_scheduler
-        start_scheduler()
 
     return app

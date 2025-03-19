@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+      .container { background-color: #ffffff; padding: 20px; margin: 30px auto; width: 80%; max-width: 600px; border-radius: 8px; }
+      h2 { color: #333333; }
+      .cve-item { border-bottom: 1px solid #ddd; padding: 10px 0; }
+      .cve-item:last-child { border-bottom: none; }
+      .changes { margin: 10px 0; }
+      .footer { text-align: center; font-size: 12px; color: #777777; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>{{ title }}</h2>
+      <p>Xin chào,</p>
+      <p>Hệ thống của bạn vừa phát hiện các thay đổi đối với các CVE sau:</p>
+      {% for mod in modifications %}
+      <div class="cve-item">
+        <h3>{{ mod.cve }}</h3>
+        <div class="changes">
+          <ul>
+            {% for field, change in mod.changes.items() %}
+            <li><strong>{{ field }}:</strong> thay đổi từ <em>{{ change.old }}</em> thành <em>{{ change.new }}</em></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endfor %}
+      <p>Vui lòng kiểm tra và xử lý kịp thời.</p>
+      <div class="footer">
+        <p>Trân trọng,<br>Đội ngũ bảo mật</p>
+      </div>
+    </div>
+  </body>
+</html>
