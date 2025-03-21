@@ -79,6 +79,14 @@ class Alerts(db.Model):
     notified_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     is_read = db.Column(db.Boolean, default=False)
 
+class WAF(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    url_id = db.Column(db.Integer, db.ForeignKey('url.id'), nullable=False)
+    name = db.Column(db.Text, nullable=False)
+    manufacturer = db.Column(db.Text, nullable=False)
+    status = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
 
 
 

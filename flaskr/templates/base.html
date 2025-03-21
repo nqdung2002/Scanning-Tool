@@ -210,7 +210,6 @@
     
       // Với mỗi CVE, tạo bảng chi tiết thay đổi
       changesList.forEach(function(item) {
-        // item: { cve: "CVE-XXXX", changes: { field1: {old:..., new:...}, field2: {...} } }
         var card = document.createElement("div");
         card.className = "card mb-3";
         var cardHeader = document.createElement("div");
@@ -220,12 +219,10 @@
     
         var table = document.createElement("table");
         table.className = "table table-bordered mb-0";
-        // Tạo header table với các cột: Field, Old, New
         var thead = document.createElement("thead");
         var headerRow = document.createElement("tr");
-        ["Field", "Old", "New"].forEach(function(col) {
+        ["Trường", "Cũ", "Mới"].forEach(function(col) {
           var th = document.createElement("th");
-          // Sử dụng lớp w-33 để chia đều (hoặc dùng custom CSS)
           th.className = "w-33";
           th.innerText = col;
           headerRow.appendChild(th);

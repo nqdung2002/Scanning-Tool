@@ -3,11 +3,12 @@ import json
 from flaskr import create_app
 from flask import Blueprint, current_app, render_template, request, jsonify
 from flaskr.auth import login_required
-from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech, Alerts
+from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech, Alerts, WAF
 from flaskr import db, socketio
 from .function.send_email import send_mail
 from flaskr.function.url_monitor import check_url_status
 from flaskr.function.mode_scan import manual_scan as mscan
+from flaskr.function.waf_monitor import stop_monitoring_waf_for_url, monitor_waf_for_url
 
 monitor_threads = {}  # {url_id: (thread, stop_event)}
 
@@ -19,11 +20,13 @@ def monitoring():
     url_list = URL.query.all()
     tech_list = Tech.query.all()
     cve_list = CVE.query.all()
+    waf_list = WAF.query.all()
     return render_template(
         'monitor/monitor.html',
         url_list=url_list,
         tech_list=tech_list,
         cve_list=cve_list,
+        waf_list=waf_list
     )
 
 # Khởi động thread theo dõi cho tất cả URL có monitoring_active=True
@@ -66,6 +69,12 @@ def add_to_watchlist():
                 nucleiResult = cve_instance.get("nucleiResult")
                 cve_id = add_cve(cve, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
                 tech_cve_association(tech_id, cve_id)
+            
+            # Lấy waf
+            for waf_instance in data.get('wafs'):
+                waf_manufacturer = waf_instance[0]
+                waf_name = waf_instance[1]
+                waf_id = add_waf(url_id, waf_name, waf_manufacturer)
         db.session.commit()
         if url_id not in monitor_threads:
             start_monitoring_for_url(url_id)
@@ -118,6 +127,7 @@ def start_monitoring_for_url(url_id):
     )
     monitor_threads[url_id] = (thread, stop_event)
     thread.start()
+    monitor_waf_for_url(url_id)
 
 
 # Dừng thread theo dõi cho 1 URL
@@ -131,6 +141,7 @@ def stop_monitoring_for_url(url_id):
         if url_obj:
             url_obj.monitoring_active = False
             db.session.commit()
+        stop_monitoring_waf_for_url(url_id)
 
 
 # Xử lý csdl
@@ -181,6 +192,15 @@ def add_alert(url_id, alert_type, title, content):
     db.session.flush()
     return new_alert.id
 
+def add_waf(url_id, waf_name, waf_manufacturer):
+    existing_waf = WAF.query.filter_by(url_id=url_id, name=waf_name, manufacturer=waf_manufacturer).first()
+    if existing_waf:
+        return existing_waf.id
+    new_waf = WAF(url_id=url_id, name=waf_name, manufacturer=waf_manufacturer)
+    db.session.add(new_waf)
+    db.session.flush()
+    return new_waf.id
+
 def url_tech_association(url_id, tech_id):
     if not URL_Tech.query.filter_by(url_id=url_id, tech_id=tech_id).first():
         association = URL_Tech(url_id=url_id, tech_id=tech_id)
@@ -224,6 +244,21 @@ def delete_url_with_association(url_id):
                         db.session.delete(cve_obj) # Xóa cve
             if tech_obj:
                 db.session.delete(tech_obj) # Xóa tech
+
+    # Xóa alert liên quân
+    alerts = Alerts.query.filter_by(url_id=url_id).all()
+    for alert in alerts:
+        db.session.delete(alert)
+
+    #  Xóa waf liên quan
+    wafs = WAF.query.filter_by(url_id=url_id).all()
+    print(f"Danh sách WAFs: {wafs}")
+    for waf in wafs:
+        print(f"Đang xóa WAF: {waf.name}")
+        db.session.delete(waf)
+    
+    db.session.flush()
+
     db.session.delete(url_obj) # Xóa url cuối cùng
     db.session.commit()
 #####################################################################################
@@ -297,11 +332,11 @@ def manual_scan(url_id):
         title = f"Phát hiện { len(new_cves) } CVE mới!"
         alert_type = 'new'
         cve_id_list = []
-        # for cve, tech_id in new_cves:
-        #     cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult = cve
-        #     cve_id = add_cve(cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
-        #     cve_id_list.append(cve_id)
-        #     tech_cve_association(tech_id, cve_id)
+        for cve, tech_id in new_cves:
+            cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult = cve
+            cve_id = add_cve(cve_name, cwe, description, vectorString, baseScore, baseSeverity, exploitabilityScore, impactScore, nucleiResult)
+            cve_id_list.append(cve_id)
+            tech_cve_association(tech_id, cve_id)
         alert_id = add_alert(url_id=url_id, alert_type=alert_type, title=title, content=cve_id_list)
         db.session.commit()
         socketio.emit('notification_push', {
@@ -337,8 +372,8 @@ def manual_scan(url_id):
             })
             cve_instance = CVE.query.filter_by(cve=cve_name).first()
             # Update các trường thay đổi vào cơ sở dữ liệu
-            # for field, values in change.items():
-            #     setattr(cve_instance, field, values['new'])
+            for field, values in change.items():
+                setattr(cve_instance, field, values['new'])
         content = json.dumps(change_list, ensure_ascii=False)
         alert_type = 'modified'
         alert_id = add_alert(url_id=url_id, alert_type=alert_type, title=title, content=content)
@@ -406,7 +441,7 @@ def auto_scan():
             
             # Xử lý CVE mới
             if new_cves:
-                title = f"Phát hiện {len(new_cves)} CVE mới tại {url_obj.url}"
+                title = f"Phát hiện {len(new_cves)} CVE mới!"
                 alert_type = 'new'
                 new_cve_ids = []
                 for cve_info, tech_id in new_cves:
@@ -437,7 +472,7 @@ def auto_scan():
             
             # Xử lý CVE được chỉnh sửa
             if modified_cves:
-                title = f"Phát hiện {len(modified_cves)} CVE được chỉnh sửa tại {url_obj.url}"
+                title = f"Phát hiện {len(modified_cves)} CVE được chỉnh sửa!"
                 alert_type = 'modified'
                 change_list = []
                 for cve_info, changes in modified_cves:
@@ -470,7 +505,7 @@ def auto_scan():
                     recipients=recipients,
                     template='mail/email_modified_cve.html',
                     title=subject,
-                    modifications=modified_cves
+                    modifications=change_list
                 )
         db.session.remove()
 #####################################################################################

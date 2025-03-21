@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        background-color: #ffffff;
+        padding: 20px;
+        margin: 30px auto;
+        width: 80%;
+        max-width: 600px;
+        border-radius: 8px;
+      }
+      h2 {
+        color: #333333;
+      }
+      p {
+        line-height: 1.6;
+        color: #333333;
+      }
+      .details {
+        border-bottom: 1px solid #ddd;
+        padding: 10px 0;
+        margin-bottom: 10px;
+      }
+      .footer {
+        text-align: center;
+        font-size: 12px;
+        color: #777777;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>{{ title }}</h2>
+      <p>Xin chào,</p>
+      <p>Hệ thống của bạn vừa phát hiện rằng WAF đang gặp sự cố và đã offline.</p>
+      <div class="details">
+        <p><strong>URL:</strong> {{ url }}</p>
+      </div>
+      <p>Vui lòng kiểm tra trạng thái và khắc phục sự cố sớm nhất có thể.</p>
+      <div class="footer">
+        <p>Trân trọng,<br>Đội ngũ giám sát hệ thống</p>
+      </div>
+    </div>
+  </body>
+</html>

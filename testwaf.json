@@ -1,0 +1,9 @@
+[
+  {
+    "detected": true,
+    "firewall": "BIG-IP Local Traffic Manager",
+    "manufacturer": "F5 Networks",
+    "trigger_url": "https://cloudrity.com.vn/customer/#/c/error/403?idAttack=10a29291706621e8611b34f30d0e52d5",
+    "url": "https://solutions.viettel.vn/vi"
+  }
+]

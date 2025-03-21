@@ -32,8 +32,8 @@ if not os.path.exists(LOG_DIR):
 
 
 if not logger.hasHandlers():
-    # FileHandler: ghi log ra file update.log
-    file_handler = logging.FileHandler(os.path.join(LOG_DIR, "update.log"), encoding="utf-8")
+    # FileHandler: ghi log ra file data_update.log
+    file_handler = logging.FileHandler(os.path.join(LOG_DIR, "data_update.log"), encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     file_formatter = logging.Formatter("%(asctime)s - %(message)s")
     file_handler.setFormatter(file_formatter)

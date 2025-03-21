@@ -1,58 +1,82 @@
 {% if results %}
-<h3>Kết quả quét: {{ url }}</h3>
-<div>
-    <span>Trạng thái: </span>
-    <span id="url-status">{{ url_status }}</span>
-</div>
-<div>
-    <span>Thời gian quét thành công lần cuối: </span>
-    <span id="last-success-time">{{ last_success_time }}</span>
-</div>
+    <h3 class="mb-4">Kết quả quét: {{ url }}</h3>
+    <div class="mb-3">
+        <span class="font-weight-bold">Trạng thái: </span>
+        <span id="url-status">{{ url_status }}</span>
+    </div>
+    <div class="mb-4">
+        <span class="font-weight-bold">Thời gian quét thành công lần cuối: </span>
+        <span id="last-success-time">{{ last_success_time }}</span>
+    </div>
 
-<div id="table-content">
-    <table>
-        <thead>
-            <tr>
-                <th>Công nghệ</th>
-                <th>Phiên bản</th>
-                <th><input type="checkbox" id="select-all" onchange="selectAllCheckbox()"></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for url, technologies in results.items() %}
-            {% if technologies %}
-                {% for tech, details in technologies.items() %}
+    <div id="waf-content">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
                 <tr>
-                    <td>
-                        <input name="tech" type="text" value="{{ tech }}"/>
-                    </td>
-                    <td>
-                        <input name="version" oninput="toggleCheckbox(this)" type="text"
-                            value="{{ details.get('version') }}"/>
-                    </td>
-                    <td>
-                        <input disabled="true" class="tech-check" name="" type="checkbox">
-                    </td>
+                    <th>Nhà cung cấp</th>
+                    <th>Firewall</th>
                 </tr>
-                {% endfor %}
-            {% else %}
+            </thead>
+            <tbody>
+                {% if wafs %}
+                    {% for manufacturer, firewall in wafs %}
+                        <tr> 
+                            <td>{{ manufacturer }}</td>
+                            <td>{{ firewall }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
                 <tr>
-                    <td colspan="4">Không tìm thấy công nghệ nào</td>
+                    <td colspan="2" class="text-center">Không tìm thấy WAF</td>
                 </tr>
-            {% endif %}
-        {% endfor %}
-        </tbody>
-    </table>
-    <button type="button" onclick="add_tech_row()">Thêm công nghệ</button>
-</div>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
 
+    <div id="table-content" class="mb-4">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Công nghệ</th>
+                    <th>Phiên bản</th>
+                    <th>
+                        <input type="checkbox" id="select-all" onchange="selectAllCheckbox()">
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for url, technologies in results.items() %}
+                {% if technologies %}
+                    {% for tech, details in technologies.items() %}
+                    <tr>
+                        <td>
+                            <input name="tech" type="text" class="form-control" value="{{ tech }}"/>
+                        </td>
+                        <td>
+                            <input name="version" oninput="toggleCheckbox(this)" type="text" class="form-control" value="{{ details.get('version') }}"/>
+                        </td>
+                        <td class="text-center">
+                            <input disabled="true" class="tech-check" name="" type="checkbox">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">Không tìm thấy công nghệ nào</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+        <button type="button" onclick="add_tech_row()">Thêm công nghệ</button>
+    </div>
 
+    <!-- Nút dừng check trạng thái (gọi js để call ajax chứ k submit form) -->
+    <button type="button" onclick="stopCheckingStatus()">Stop Checking Status</button>
+        
+    <!-- Nút submit form để gọi js để call ajax chứ k submit form -->
+    <button type="button" id="vuln-scan" onclick="submitTechScanForm()">Quét</button>
 
-<!-- Nút dừng check trạng thái (gọi js để call ajax chứ k submit form) -->
-<button type="button" onclick="stopCheckingStatus()">Stop Checking Status</button>
-    
-<!-- Nút submit form để gọi js để call ajax chứ k submit form -->
-<button type="button" id="vuln-scan" onclick="submitTechScanForm()">Quét</button>
-
-<div id="vuln-scan-result" style="display: none;"></div>
+    <div id="vuln-scan-result" style="display: none;"></div>
 {% endif %}

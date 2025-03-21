@@ -9,7 +9,7 @@ from flaskr import socketio
 from flaskr.function.nuclei_scan import check_template_available, run_nuclei, analyze_results
 from flaskr.function.cpe_scan import search_cpe
 from flaskr.function.cve_scan import create_cve_list
-from flaskr.function.url_monitor import check_url_status  # Sử dụng hàm chung để theo dõi URL
+from flaskr.function.url_monitor import check_url_status, detect_waf  # Sử dụng hàm chung để theo dõi URL
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  
@@ -20,18 +20,28 @@ scan_stop_event = threading.Event()
 url_status = None
 last_success_time = "Chưa có kết quả"
 scanning_url = None
+list_wafs = []
 
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
 def tech_scan():
-    global url_status, current_scan_thread, scan_stop_event, scanning_url
-    max_retries = 3  # Số lần thử lại tối đa
-    retry_delay = 5
+    global url_status, current_scan_thread, scan_stop_event, scanning_url, list_wafs
     results = None
+    list_wafs = []
 
     if request.method == 'POST':
-        scanning_url = request.form.get('url')
+        scanning_url = request.form.get('url').strip()
         if scanning_url:
+            # Check có waf không
+            try:
+                waf_results = detect_waf(scanning_url)
+                if waf_results:
+                    for item in waf_results:
+                        if item["detected"] == True:
+                            list_wafs.append((item["manufacturer"], item["firewall"]))
+            except subprocess.SubprocessError as e:
+                print(f"Có lỗi xảy ra với wafw00f: { e }")
+
             # Nếu có thread scan cũ đang chạy thì dừng nó
             if current_scan_thread and current_scan_thread.is_alive():
                 scan_stop_event.set()
@@ -39,40 +49,37 @@ def tech_scan():
                 print("Đã kết thúc thread scan cũ")
             scan_stop_event = threading.Event()
             retries = 0
-            while retries < max_retries:
-                try:
-                    # Chạy Wappalyzer để quét công nghệ
-                    cmd = ["wappalyzer", "-i", scanning_url, "-oJ", LOG_FILE]
-                    subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
+            try:
+                # Chạy Wappalyzer để quét công nghệ
+                cmd = ["wappalyzer", "-i", scanning_url, "-oJ", LOG_FILE]
+                subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
 
-                    if os.path.exists(LOG_FILE):
-                        with open(LOG_FILE, "r", encoding="utf-8") as f:
-                            results = json.load(f)
-                        with open(LOG_FILE, "w", encoding="utf-8") as f:
-                            f.write(json.dumps(results, indent=4))
-                        print("Quét thành công")
-                        break  # Thoát khỏi vòng lặp nếu quét thành công
-                    else:
-                        flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
-                        print("Không thể tạo log.json. Kiểm tra Wappalyzer.")
-                except subprocess.CalledProcessError as e:
-                    retries += 1
-                    print(f"Lỗi khi quét: {e}. Thử lại lần {retries}/{max_retries}")
-                    if retries < max_retries:
-                        time.sleep(retry_delay)  # Chờ trước khi thử lại
-                    else:
-                        flash(f"Lỗi khi quét: {e}. Đã thử lại {max_retries} lần nhưng không thành công.")
-                        print(f"Lỗi khi quét: {e}. Đã thử lại {max_retries} lần nhưng không thành công.")
-                
-                # Khởi động thread theo dõi trạng thái URL (với url_id=None vì URL chưa có trong DB)
+                if os.path.exists(LOG_FILE):
+                    with open(LOG_FILE, "r", encoding="utf-8") as f:
+                        results = json.load(f)
+                    with open(LOG_FILE, "w", encoding="utf-8") as f:
+                        f.write(json.dumps(results, indent=4))
+                    print("Quét thành công")
+                else:
+                    flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+                    print("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+            except subprocess.CalledProcessError as e:
+                retries += 1
+                print(f"Lỗi khi quét: {e}")
+            
+            # Khởi động thread theo dõi trạng thái URL (với url_id=None vì URL chưa có trong DB)
+            try:
                 current_scan_thread = threading.Thread(
                     target=check_url_status, args=(scanning_url, scan_stop_event),
                     daemon=True
                 )
                 current_scan_thread.start()
+                print("Thread đã khởi động")
+            except:
+                print("Lỗi khởi tạo thread")
 
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return render_template('scan/tech-scan-result.html', results=results, url_status=url_status, url=scanning_url)
+            return render_template('scan/tech-scan-result.html', results=results, url_status=url_status, url=scanning_url, wafs=list_wafs)
 
     return render_template('scan/tech-scan.html', results=results, url_status=url_status, url=scanning_url)
 
@@ -116,7 +123,7 @@ def cve_search():
                 "results": results
             })
         stop_status()
-        return render_template('scan/cve-search.html', results=tech_results, url=scanning_url)
+        return render_template('scan/cve-search.html', results=tech_results, url=scanning_url, wafs=list_wafs)
     return render_template('scan/cve-search.html')
 
 @bp.route('/nuclei_scan', methods=['POST'])

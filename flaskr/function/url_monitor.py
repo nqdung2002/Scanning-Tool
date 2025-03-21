@@ -1,9 +1,23 @@
-import requests
-import uuid
+import requests, uuid, logging, os, json
+import subprocess
+from flaskr import create_app
 from datetime import datetime
 from flaskr import socketio, db
+from flaskr.function.send_email import send_mail
 from requests.adapters import HTTPAdapter, Retry
 
+LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../log'))
+
+# Log lỗi khi kiểm tra status
+logger = logging.getLogger("connection_error")
+logger.setLevel(logging.ERROR)
+logger.propagate = False
+file_handler = logging.FileHandler(os.path.join(LOG_DIR, "connection_error.log"), encoding="utf-8")
+file_formatter = logging.Formatter("%(asctime)s - %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+# Tạo session để retry, tránh connection abort
 def create_session_with_retries():
     session = requests.Session()
     retries = Retry(
@@ -16,12 +30,7 @@ def create_session_with_retries():
     session.mount('https://', adapter)
     return session
 
-def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_event='status_update', app=None):
-    """
-    Kiểm tra trạng thái của URL và gửi emit qua SocketIO.
-    Nếu url_id=None (tức URL chưa được lưu vào DB), sẽ tạo temp id.
-    Khi số lỗi vượt quá quy định, thread tự dừng và cập nhật DB (monitoring_active=False).
-    """
+def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_event='url_status_update', app=None):
     if url_id is None:
         temp_id = str(uuid.uuid4())
     else:
@@ -73,6 +82,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
             print(f"Lỗi khi kiểm tra {url}: {e}")
             if err_count >= 2:
                 socketio.emit('error', {'message': f"Lỗi khi kiểm tra {url}: {e}"})
+                logger.error(f"Lỗi khi kiểm tra {url}: {e}")
                 if url_id is not None and app is not None:
                     try:
                         with app.app_context():
@@ -92,7 +102,37 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                     except Exception as ex:
                         print("Lỗi cập nhật DB: ", ex)
                 stop_event.set()
+                try:
+                    from flask import current_app
+                    app = current_app._get_current_object()
+                except RuntimeError:
+                    app = create_app()
+                with app.app_context():
+                    send_mail(
+                        subject="Mất kết nối với URL.",
+                        recipients=['nqdung1977@gmail.com', 'nqdung19082002@gmail.com'],
+                        template='mail/email_url_down.html',
+                        title="Mất kết nối với URL.",
+                        url=url,
+                        error_details=e
+                    )
         if stop_event.is_set():
             break
         if stop_event.wait(10): # Thời gian chờ giữa các vòng lặp
             break
+
+def detect_waf(url):
+    try:
+        cmd = ["wafw00f", url, "-o", "waf.json", "-a"]
+        subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
+        with open('waf.json', "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not data:
+            print(f"Không tìm thấy WAF của { url }")
+            return None
+        return data
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Lỗi khi quét WAF: {e}")
+        return None
+    
+    

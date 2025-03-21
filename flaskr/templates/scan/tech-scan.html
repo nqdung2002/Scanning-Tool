@@ -4,7 +4,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container d-flex flex-column justify-content-center align-items-center">
+<div class="container d-flex flex-column align-items-center justify-content-center">
     <!-- Form nhập URL để quét -->
     <form id="scan-form" class="form-inline p-1">
         <label for="url">URL</label>
@@ -27,9 +27,8 @@
 <script>
     var socket = io(); // Khởi tạo socket.io
 
-    // Lắng nghe sự kiện 'status_update'
-    socket.on('status_update', function(data) {
-        console.log('Cập nhật status nhận được:', data);
+    // Lắng nghe sự kiện 'url_status_update'
+    socket.on('url_status_update', function(data) {
         const urlStatusElement = document.getElementById('url-status');
         const lastSuccessTimeElement = document.getElementById('last-success-time');
         if (urlStatusElement) {
@@ -65,7 +64,7 @@
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "X-Requested-With": "XMLHttpRequest"  // Để Flask nhận biết đây là AJAX
+                "X-Requested-With": "XMLHttpRequest"
             },
             body: new URLSearchParams({ "url": urlInput })
         })

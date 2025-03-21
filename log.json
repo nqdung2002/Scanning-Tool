@@ -1,15 +1,5 @@
 {
-    "https://dungcu.maugiaodien.com/": {
-        "Cloudflare": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "CDN"
-            ],
-            "groups": [
-                "Servers"
-            ]
-        },
+    "https://solutions.viettel.vn/vi": {
         "HTTP/2": {
             "version": "",
             "confidence": 100,
@@ -20,143 +10,8 @@
                 "Other"
             ]
         },
-        "HTTP/3": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Miscellaneous"
-            ],
-            "groups": [
-                "Other"
-            ]
-        },
-        "WordPress": {
-            "version": "6.0",
-            "confidence": 100,
-            "categories": [
-                "CMS",
-                "Blogs"
-            ],
-            "groups": [
-                "Content"
-            ]
-        },
-        "jQuery": {
-            "version": "3.6.0",
-            "confidence": 100,
-            "categories": [
-                "JavaScript libraries"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Contact Form 7": {
-            "version": "5.6",
-            "confidence": 100,
-            "categories": [
-                "WordPress plugins",
-                "Form builders"
-            ],
-            "groups": [
-                "Add-ons",
-                "Analytics"
-            ]
-        },
-        "WooCommerce": {
-            "version": "6.6.1",
-            "confidence": 100,
-            "categories": [
-                "Ecommerce",
-                "WordPress plugins"
-            ],
-            "groups": [
-                "Sales",
-                "Add-ons"
-            ]
-        },
-        "core-js": {
-            "version": "3.19.1",
-            "confidence": 100,
-            "categories": [
-                "JavaScript libraries"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Twitter Emoji (Twemoji)": {
-            "version": "14.0.2",
-            "confidence": 100,
-            "categories": [
-                "Font scripts"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Cart Functionality": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Ecommerce"
-            ],
-            "groups": [
-                "Sales"
-            ]
-        },
-        "Flickity": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "JavaScript libraries"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Font Awesome": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Font scripts"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Google Font API": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Font scripts"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "jsDelivr": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "CDN"
-            ],
-            "groups": [
-                "Servers"
-            ]
-        },
-        "RSS": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Miscellaneous"
-            ],
-            "groups": [
-                "Other"
-            ]
-        },
         "PHP": {
-            "version": "",
+            "version": "7.2.12",
             "confidence": 100,
             "categories": [
                 "Programming languages"
@@ -165,14 +20,104 @@
                 "Web development"
             ]
         },
-        "MySQL": {
+        "Bootstrap": {
+            "version": "4.1.1",
+            "confidence": 100,
+            "categories": [
+                "UI frameworks"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Google Analytics": {
+            "version": "GA4",
+            "confidence": 100,
+            "categories": [
+                "Analytics"
+            ],
+            "groups": [
+                "Analytics"
+            ]
+        },
+        "Google Tag Manager": {
             "version": "",
             "confidence": 100,
             "categories": [
-                "Databases"
+                "Tag managers"
             ],
             "groups": [
-                "Servers"
+                "Analytics"
+            ]
+        },
+        "jQuery": {
+            "version": "3.2.1",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Popper": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "Miscellaneous"
+            ],
+            "groups": [
+                "Other"
+            ]
+        },
+        "Select2": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Slick": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "FancyBox": {
+            "version": "3.3.5",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "toastr": {
+            "version": "2.1.3",
+            "confidence": 100,
+            "categories": [
+                "JavaScript frameworks"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Open Graph": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "Miscellaneous"
+            ],
+            "groups": [
+                "Other"
             ]
         }
     }

@@ -2,3 +2,6 @@
 /test
 /log
 /doc
+*.pyc
+
+log.json
