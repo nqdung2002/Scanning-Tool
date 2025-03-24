@@ -1,7 +1,6 @@
 /src
 /test
 /log
-/doc
 *.pyc
 
 log.json
