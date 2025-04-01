@@ -1,57 +1,17 @@
 {
-    "https://solutions.viettel.vn/vi": {
-        "HTTP/2": {
+    "http://127.0.0.1:3000/": {
+        "cdnjs": {
             "version": "",
             "confidence": 100,
             "categories": [
-                "Miscellaneous"
+                "CDN"
             ],
             "groups": [
-                "Other"
-            ]
-        },
-        "PHP": {
-            "version": "7.2.12",
-            "confidence": 100,
-            "categories": [
-                "Programming languages"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Bootstrap": {
-            "version": "4.1.1",
-            "confidence": 100,
-            "categories": [
-                "UI frameworks"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "Google Analytics": {
-            "version": "GA4",
-            "confidence": 100,
-            "categories": [
-                "Analytics"
-            ],
-            "groups": [
-                "Analytics"
-            ]
-        },
-        "Google Tag Manager": {
-            "version": "",
-            "confidence": 100,
-            "categories": [
-                "Tag managers"
-            ],
-            "groups": [
-                "Analytics"
+                "Servers"
             ]
         },
         "jQuery": {
-            "version": "3.2.1",
+            "version": "2.2.4",
             "confidence": 100,
             "categories": [
                 "JavaScript libraries"
@@ -60,48 +20,38 @@
                 "Web development"
             ]
         },
-        "Popper": {
+        "Onsen UI": {
             "version": "",
             "confidence": 100,
             "categories": [
-                "Miscellaneous"
+                "Mobile frameworks"
             ],
             "groups": [
-                "Other"
+                "Web development"
             ]
         },
-        "Select2": {
+        "core-js": {
+            "version": "3.40.0",
+            "confidence": 100,
+            "categories": [
+                "JavaScript libraries"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Font Awesome": {
             "version": "",
             "confidence": 100,
             "categories": [
-                "JavaScript libraries"
+                "Font scripts"
             ],
             "groups": [
                 "Web development"
             ]
         },
-        "Slick": {
+        "Zone.js": {
             "version": "",
-            "confidence": 100,
-            "categories": [
-                "JavaScript libraries"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "FancyBox": {
-            "version": "3.3.5",
-            "confidence": 100,
-            "categories": [
-                "JavaScript libraries"
-            ],
-            "groups": [
-                "Web development"
-            ]
-        },
-        "toastr": {
-            "version": "2.1.3",
             "confidence": 100,
             "categories": [
                 "JavaScript frameworks"
@@ -110,14 +60,44 @@
                 "Web development"
             ]
         },
-        "Open Graph": {
+        "Angular": {
+            "version": "15.2.10",
+            "confidence": 100,
+            "categories": [
+                "JavaScript frameworks"
+            ],
+            "groups": [
+                "Web development"
+            ]
+        },
+        "Node.js": {
             "version": "",
             "confidence": 100,
             "categories": [
-                "Miscellaneous"
+                "Programming languages"
             ],
             "groups": [
-                "Other"
+                "Web development"
+            ]
+        },
+        "Cloudflare": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "CDN"
+            ],
+            "groups": [
+                "Servers"
+            ]
+        },
+        "TypeScript": {
+            "version": "",
+            "confidence": 100,
+            "categories": [
+                "Programming languages"
+            ],
+            "groups": [
+                "Web development"
             ]
         }
     }

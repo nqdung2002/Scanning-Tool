@@ -9,7 +9,8 @@ from flaskr import socketio
 from flaskr.function.nuclei_scan import check_template_available, run_nuclei, analyze_results
 from flaskr.function.cpe_scan import search_cpe
 from flaskr.function.cve_scan import create_cve_list
-from flaskr.function.url_monitor import check_url_status, detect_waf  # Sử dụng hàm chung để theo dõi URL
+from flaskr.function.url_monitor import check_url_status
+from flaskr.function.waf_monitor import detect_waf
 
 bp = Blueprint('scan', __name__)
 LOG_FILE = "log.json"  

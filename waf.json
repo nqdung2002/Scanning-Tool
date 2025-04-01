@@ -1,16 +1,9 @@
 [
   {
-    "detected": true,
-    "firewall": "BIG-IP Local Traffic Manager",
-    "manufacturer": "F5 Networks",
-    "trigger_url": "https://cloudrity.com.vn/customer/#/c/error/403?idAttack=f99d7ee2a1b7232dd9518898bc16d73e",
-    "url": "https://solutions.viettel.vn/vi"
-  },
-  {
     "detected": false,
     "firewall": "None",
     "manufacturer": "None",
     "trigger_url": null,
-    "url": "https://solutions.viettel.vn/vi"
+    "url": "https://nhipbac.com/"
   }
 ]

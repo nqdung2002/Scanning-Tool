@@ -1,5 +1,6 @@
-import os
+import os, sys, signal
 from flaskr.config.config import Config
+from flaskr.function.tor_init import start_tor, stop_tor
 from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -10,6 +11,7 @@ socketio = SocketIO()
 db = SQLAlchemy()
 migrate = Migrate()
 mail = Mail()
+process = None
 
 def create_app(test_config=None):
     # Tạo và cấu hình ứng dụng
@@ -36,6 +38,10 @@ def create_app(test_config=None):
     app.register_blueprint(scan.bp)
     app.register_blueprint(monitor.bp)
     app.add_url_rule('/', endpoint='scan')
+
+    # Khởi tạo server Tor
+    global process 
+    process = start_tor()
     
     # Khởi tạo database và migrate
     db.init_app(app)
@@ -49,7 +55,15 @@ def create_app(test_config=None):
             from .function.data_auto_update import start_scheduler
             start_scheduler()
 
-
-    # Khởi chạy scheduler cập nhật tự động ở tiến trình con
+    signal.signal(signal.SIGINT, handle_exit_signal)
 
     return app
+
+def handle_exit_signal(signal, frame):
+    print("Shutting down...")
+    try:
+        stop_tor(process)
+        print("Đã dừng Tor")
+    except Exception as e:
+        print(f"Lỗi khi dừng Tor:  {e}")
+    sys.exit(0)

@@ -7,6 +7,10 @@ from flaskr.function.send_email import send_mail
 from requests.adapters import HTTPAdapter, Retry
 
 LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../log'))
+TOR_PROXIES = {
+    'http': 'socks5h://localhost:9050',
+    'https': 'socks5h://localhost:9050'
+}
 
 # Log lỗi khi kiểm tra status
 logger = logging.getLogger("connection_error")
@@ -28,6 +32,7 @@ def create_session_with_retries():
     adapter = HTTPAdapter(max_retries=retries)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
+    session.proxies = TOR_PROXIES
     return session
 
 def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_event='url_status_update', app=None):
@@ -44,7 +49,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
 
     while not stop_event.is_set():
         try:
-            response = session.get(url, timeout=6)
+            response = session.get(url, timeout=15)
             current_status = response.status_code
 
             if current_status in [301, 302]:
@@ -98,41 +103,21 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                                     'last_success_time': None,
                                     "monitoring_active": False
                                 })
+                                send_mail(
+                                    subject="Mất kết nối với URL.",
+                                    recipients=['nqdung19082002@gmail.com'],
+                                    template='mail/email_url_down.html',
+                                    title="Mất kết nối với URL.",
+                                    url=url,
+                                    error_details=e
+                                )
                                 print("Đã dừng thread do vượt quá giới hạn kết nối cho phép")
                     except Exception as ex:
                         print("Lỗi cập nhật DB: ", ex)
                 stop_event.set()
-                try:
-                    from flask import current_app
-                    app = current_app._get_current_object()
-                except RuntimeError:
-                    app = create_app()
-                with app.app_context():
-                    send_mail(
-                        subject="Mất kết nối với URL.",
-                        recipients=['nqdung1977@gmail.com', 'nqdung19082002@gmail.com'],
-                        template='mail/email_url_down.html',
-                        title="Mất kết nối với URL.",
-                        url=url,
-                        error_details=e
-                    )
         if stop_event.is_set():
             break
-        if stop_event.wait(10): # Thời gian chờ giữa các vòng lặp
+        if stop_event.wait(20): # Thời gian chờ giữa các vòng lặp
             break
-
-def detect_waf(url):
-    try:
-        cmd = ["wafw00f", url, "-o", "waf.json", "-a"]
-        subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
-        with open('waf.json', "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not data:
-            print(f"Không tìm thấy WAF của { url }")
-            return None
-        return data
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Lỗi khi quét WAF: {e}")
-        return None
     
     

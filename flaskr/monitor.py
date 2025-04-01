@@ -351,7 +351,7 @@ def manual_scan(url_id):
     
         # Gửi email khi phát hiện cve mới
         subject = title
-        recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+        recipients=['nqdung19082002@gmail.com']
         send_mail(
             subject=subject,
             recipients=recipients,
@@ -390,7 +390,7 @@ def manual_scan(url_id):
 
         # Gửi email khi phát hiện cve được chỉnh sửa
         subject = title
-        recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+        recipients=['nqdung19082002@gmail.com']
         send_mail(
             subject=subject,
             recipients=recipients,
@@ -461,7 +461,7 @@ def auto_scan():
                 
                 # Gửi email khi phát hiện cve mới
                 subject = title
-                recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+                recipients=['nqdung19082002@gmail.com']
                 send_mail(
                     subject=subject,
                     recipients=recipients,
@@ -499,7 +499,7 @@ def auto_scan():
                 
                 # Gửi email khi phát hiện cve được chỉnh sửa
                 subject = title
-                recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com']
+                recipients=['nqdung19082002@gmail.com']
                 send_mail(
                     subject=subject,
                     recipients=recipients,

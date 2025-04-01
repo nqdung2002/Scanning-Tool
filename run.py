@@ -8,4 +8,4 @@ if __name__ == '__main__':
     with app.app_context():
         start_watchlist_threads()
         start_monitoring_waf()
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=False)

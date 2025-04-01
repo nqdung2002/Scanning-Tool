@@ -1,7 +1,6 @@
-import threading
+import threading, subprocess, json
 from datetime import datetime
 from flask import current_app
-from flaskr.function.url_monitor import detect_waf
 from flaskr.model import URL, WAF
 from flaskr import db, socketio
 from .send_email import send_mail
@@ -11,8 +10,11 @@ waf_monitor_threads = {}  # {url_id: (thread, stop_event)}
 def monitor_waf_for_url(url_id):
     stop_event = threading.Event()
     app = current_app._get_current_object()
+    retry_count = 0
+    max_retries = 3
 
     def waf_monitor_task():
+        nonlocal retry_count
         while not stop_event.is_set():
             with app.app_context():
                 url_obj = URL.query.get(url_id)
@@ -47,23 +49,29 @@ def monitor_waf_for_url(url_id):
                 for waf in existing_wafs:
                     # Nếu waf.name không có trong danh sách waf vừa được quét
                     if waf.name not in [item["firewall"] for item in waf_results if item["detected"]] and waf.status == True:
-                        if waf.status: 
+                        retry_count += 1
+
+                        # Nếu sau max_retries mà WAF vẫn offline, cập nhật trạng thái và gửi email
+                        if retry_count >= max_retries:
                             waf.status = False
                             db.session.commit()
-                            print(f"WAF {waf.name} đã offline cho URL {url_id}")
+                            print(f"WAF {waf.name} đã offline cho URL {url_id} sau {max_retries} lần thử.")
                             send_mail(
                                 subject=f"WAF {waf.name} đã offline",
-                                recipients=['nqdung19082002@gmail.com', 'nqdung1977@gmail.com'],
+                                recipients=['nqdung19082002@gmail.com'],
                                 template='mail/email_waf_down.html',
-                                title=f"WAF {waf.name} của {url_obj.name} đã offline",
+                                title=f"WAF {waf.name} của URL {url_id} đã offline",
                                 url=url_obj.url
                             )
+                        else:
+                            print(f"Lấy dữ liệu đến WAF { waf.name } của URL { url_id } thất bại { retry_count }/{ max_retries }. Đang thử lại...")
                     else:
                         # Cập nhật trạng thái khi WAF online lại
                         if not waf.status:
                             waf.status = True
                             db.session.commit()
                             print(f"WAF {waf.name} đã online trở lại cho URL {url_id}")
+                            retry_count = 0
                     waf_status = 'Online' if waf.status else 'Offline'
                     socketio.emit('waf_status_update', {
                         'waf_id': waf.id,
@@ -91,3 +99,17 @@ def start_monitoring_waf():
     for url_obj in urls:
         if url_obj.id not in waf_monitor_threads:
             monitor_waf_for_url(url_obj.id)
+
+def detect_waf(url):
+    try:
+        cmd = ["wafw00f", url, "-o", "waf.json", "-a"]
+        subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
+        with open('waf.json', "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not data:
+            print(f"Không tìm thấy WAF của { url }")
+            return []
+        return data
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Lỗi khi quét WAF: {e}")
+        return []
