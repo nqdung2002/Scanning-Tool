@@ -1,6 +1,6 @@
-import os, sys, signal
+import os, sys, signal, time, threading
 from flaskr.config.config import Config
-from flaskr.function.tor_init import start_tor, stop_tor
+from flaskr.function.tor_init import start_tor, stop_tor, renew_tor_ip
 from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -12,6 +12,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 mail = Mail()
 process = None
+scheduler_started = False
 
 def create_app(test_config=None):
     # Tạo và cấu hình ứng dụng
@@ -40,7 +41,7 @@ def create_app(test_config=None):
     app.add_url_rule('/', endpoint='scan')
 
     # Khởi tạo server Tor
-    global process 
+    global process, scheduler_started 
     process = start_tor()
     
     # Khởi tạo database và migrate
@@ -51,11 +52,19 @@ def create_app(test_config=None):
         mail = Mail(app)
         # Khởi tạo SocketIO
         socketio.init_app(app)
-        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        if not scheduler_started:
+            scheduler_started = True  # Đánh dấu tiến trình đã khởi chạy
             from .function.data_auto_update import start_scheduler
             start_scheduler()
 
     signal.signal(signal.SIGINT, handle_exit_signal)
+    
+    # Xoay IP Tor mỗi 60s
+    def tor_ip_rotation_thread():
+        while True:
+            renew_tor_ip()
+            time.sleep(60)
+    threading.Thread(target=tor_ip_rotation_thread, daemon=True).start()
 
     return app
 

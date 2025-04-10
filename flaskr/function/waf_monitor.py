@@ -45,6 +45,7 @@ def monitor_waf_for_url(url_id):
                                 db.session.add(new_waf)
                                 db.session.commit()
                                 print(f"Đã thêm WAF mới: {waf_name} cho URL {url_id}")
+                                socketio.emit('add_new_waf')
 
                 for waf in existing_wafs:
                     # Nếu waf.name không có trong danh sách waf vừa được quét
