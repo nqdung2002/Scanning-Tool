@@ -12,7 +12,6 @@ from .data_download import modified_recent_pull, complete_pull
 from .cve_scan import indexing_modified_recent_cve, indexing_full_cve
 from .cpe_scan import indexing_cpe
 from flaskr.monitor import auto_scan
-from flask import current_app
 
 # Múi giờ Haloi
 gmt7 = datetime.timezone(datetime.timedelta(hours=7))
@@ -114,7 +113,7 @@ def complete_update():
         indexing_cpe()
 
         print("[INFO] Bắt đầu cập nhật template Nuclei")
-        subprocess.run(['nuclei', '-ut'])
+        subprocess.run(['nuclei', '-ut', '-up'])
 
         print("[INFO] Tự động quét lại!!!")
         auto_scan()

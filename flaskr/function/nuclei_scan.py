@@ -3,7 +3,7 @@ import os
 import json
 from pathlib import Path
 
-template_folder_path = Path("C:/Users/Admin/nuclei-templates/http")
+template_folder_path = Path(__file__).resolve().parent.parent.parent / "nuclei-templates/http"
 
 def check_template_available(cves):
     available_templates = []

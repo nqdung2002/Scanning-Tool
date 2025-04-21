@@ -30,7 +30,7 @@ RUN apt-get update && \
     wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.2.6/nuclei_3.2.6_linux_amd64.zip && \
     unzip nuclei_3.2.6_linux_amd64.zip -d /usr/local/bin && \
     rm nuclei_3.2.6_linux_amd64.zip && \
-    nuclei -ut -silent
+    nuclei -ud ./nuclei-templates -silent
 
 # Cài thư viện hệ thống cho SSL, DNS, và Firefox headless
 RUN apt-get update && \

@@ -77,13 +77,13 @@ def check_tech(url):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp_file:
             temp_file_path = temp_file.name
-        cmd = ["wappalyzer", "-i", url, "-oJ", temp_file]
+        cmd = ["wappalyzer", "-i", url, "-oJ", temp_file_path]
         subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-        if os.path.exists(temp_file):
-            with open(temp_file, "r", encoding="utf-8") as f:
+        if os.path.exists(temp_file_path):
+            with open(temp_file_path, "r", encoding="utf-8") as f:
                 results = json.load(f)
-            os.remove(temp_file) # Xóa sau khi sử dụng
+            os.remove(temp_file_path) # Xóa sau khi sử dụng
             print("Quét thành công")
         else:
             flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
@@ -144,6 +144,7 @@ def nuclei_scan_route():
     return jsonify(results)
 
 def nuclei_scan(cves, scanning_url):
+    output_file = "scan-results.json"
     available_templates, missing_templates = check_template_available(cves)
     results = {}
 
@@ -152,7 +153,6 @@ def nuclei_scan(cves, scanning_url):
             results[template] = {
                 "status": "Có template nhưng không phát hiện lỗ hổng",
             }
-        output_file = "scan-results.json"
         run_nuclei(scanning_url, available_templates, output_file)
         vulnerability_results = analyze_results(output_file, available_templates)
         for template, status in vulnerability_results.items():
@@ -164,6 +164,7 @@ def nuclei_scan(cves, scanning_url):
         results[cve] = {
             "status": "Không tìm thấy template",
         }
+    os.remove(output_file)
     return results
 
 # Biến kiểm soát tiến trình
