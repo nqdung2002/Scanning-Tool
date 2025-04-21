@@ -1,0 +1,24 @@
+# Bỏ qua thư mục Git và vscode
+.git/
+.vscode/
+
+# Bỏ qua file log
+*.log
+
+# Bỏ qua thư mục __pycache__
+__pycache__/
+*.pyc
+*.pyo
+
+# Bỏ qua file tạm
+*.tmp
+
+# Bỏ qua file Dockerfile và .dockerignore (không cần trong container)
+Dockerfile
+.dockerignore
+
+# Bỏ qua thư mục src và doc
+src/
+doc/
+
+.env

@@ -1,0 +1,57 @@
+version: "3.9"
+services:
+  scanning-tool:
+    image: scanning-tool:latest
+    command: flask run --host 0.0.0.0 --port 5000 --reload
+    depends_on:
+      db:
+        condition: service_healthy      # đợi DB sẵn sàng
+    environment:
+      FLASK_APP: run.py
+      FLASK_ENV: development
+      DATABASE_URL: mysql+mysqlconnector://root:thuy123@db:3306/mydb
+      TOR_CONTROL_HOST: tor
+      TOR_CONTROL_PORT: 9051
+      TOR_PASSWORD: my_pass
+      SOCKS_PROXY: socks5h://tor:9050
+      NO_PROXY: "localhost,127.0.0.1,db,tor,other-service"
+      TZ: Asia/Bangkok
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5000:5000"                     # web UI
+    volumes:
+      - .:/app                          # hot reload
+      - whoosh_index_cpe:/app/src/nvd_cpe_data/whoosh_indexing
+      - whoosh_index_cve:/app/src/nvd_cve_data/whoosh_indexing
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+  db:
+    image: mysql:8.0                    # base image chính thức
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: thuy123
+      MYSQL_DATABASE: mydb
+      TZ: Asia/Bangkok
+    volumes:
+      - mysql_data:/var/lib/mysql       # giữ dữ liệu khi container chết
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:                        # để app đợi DB ready
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  tor:
+    image: dperson/torproxy
+    environment:
+      TOR_ControlPort: "0.0.0.0:9051"
+      TOR_SocksPort: "0.0.0.0:9050"
+      TOR_HashedControlPassword: "16:3759DAD295FFACF660586876A53B4A1164181BB7439B5376C11A7F9841"
+      TOR_TransPort: "0"
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  whoosh_index_cpe:
+  whoosh_index_cve:
+  

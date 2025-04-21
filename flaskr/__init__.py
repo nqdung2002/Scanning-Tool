@@ -1,6 +1,6 @@
 import os, sys, signal, time, threading
 from flaskr.config.config import Config
-from flaskr.function.tor_init import start_tor, stop_tor, renew_tor_ip
+from flaskr.function.tor_init import ensure_tor_running, stop_tor, renew_tor_ip
 from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -11,7 +11,6 @@ socketio = SocketIO()
 db = SQLAlchemy()
 migrate = Migrate()
 mail = Mail()
-process = None
 scheduler_started = False
 
 def create_app(test_config=None):
@@ -33,16 +32,17 @@ def create_app(test_config=None):
         pass
 
     # Đăng ký blueprint
-    from . import auth, blog, scan, monitor
+    from . import auth, scan, monitor
+    from .function import export_report
     app.register_blueprint(auth.bp)
-    app.register_blueprint(blog.bp)
     app.register_blueprint(scan.bp)
     app.register_blueprint(monitor.bp)
+    app.register_blueprint(export_report.bp)
     app.add_url_rule('/', endpoint='scan')
 
     # Khởi tạo server Tor
-    global process, scheduler_started 
-    process = start_tor()
+    global scheduler_started 
+    ensure_tor_running()
     
     # Khởi tạo database và migrate
     db.init_app(app)
@@ -59,11 +59,11 @@ def create_app(test_config=None):
 
     signal.signal(signal.SIGINT, handle_exit_signal)
     
-    # Xoay IP Tor mỗi 60s
+    # Xoay IP Tor mỗi 120s
     def tor_ip_rotation_thread():
         while True:
             renew_tor_ip()
-            time.sleep(60)
+            time.sleep(120)
     threading.Thread(target=tor_ip_rotation_thread, daemon=True).start()
 
     return app
@@ -71,7 +71,7 @@ def create_app(test_config=None):
 def handle_exit_signal(signal, frame):
     print("Shutting down...")
     try:
-        stop_tor(process)
+        stop_tor()
         print("Đã dừng Tor")
     except Exception as e:
         print(f"Lỗi khi dừng Tor:  {e}")

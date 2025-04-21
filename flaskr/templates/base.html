@@ -125,6 +125,12 @@
       } else if (data.alert_type === 'modified') {
         a.classList.add("modified");
         a.innerHTML = "<i class='material-icons-outlined' style='color: orange;'>edit</i> " + data.title;
+      } else if (data.alert_type === 'url_offline') {
+        a.classList.add("url_offline");
+        a.innerHTML = "<i class='material-symbols-outlined' style='color: red;'>signal_disconnected</i> " + data.title;
+      } else if (data.alert_type === 'waf_offline') {
+        a.classList.add("url_offline");
+        a.innerHTML = "<i class='material-symbols-outlined' style='color: red;'>warning</i> " + data.title;
       } else {
         a.innerHTML = data.title;
       }

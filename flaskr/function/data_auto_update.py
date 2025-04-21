@@ -211,3 +211,9 @@ def start_scheduler():
         misfire_grace_time=7199,
         replace_existing=True
     )
+
+def main():
+    complete_update()
+
+if __name__ == '__main__':
+    main()

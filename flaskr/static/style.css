@@ -20,27 +20,37 @@
     100% { transform: rotate(360deg); }
 }
 
-.dropdown-item.notification-item {
+/* .dropdown-item.notification-item {
     transition: background-color 0.2s ease;
  }
   
 
 .dropdown-item.notification-item:hover {
     background-color: #e0e0e0; 
- }
+ } */
 
 .dropdown-item.notification-item.unread.new {
     background-color: #a0faae;
     transition: background-color 0.2s ease;
   }
   
-  .dropdown-item.notification-item.unread.modified {
-    background-color: #fff4c2;
+.dropdown-item.notification-item.unread.modified {
+background-color: #fff4c2;
+transition: background-color 0.2s ease;
+}
+
+.dropdown-item.notification-item.unread.url_offline {
+    background-color: #faafa0;
     transition: background-color 0.2s ease;
   }
   
-  .dropdown-item.notification-item:hover {
-    background-color: #ffffff;
-  }
+.dropdown-item.notification-item.unread.waf_offline {
+background-color: #faafa0;
+transition: background-color 0.2s ease;
+}
+
+.dropdown-item.notification-item:hover {
+background-color: #ffffff;
+}
   
   

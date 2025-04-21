@@ -1,17 +1,18 @@
-import threading, subprocess, json
+import threading, subprocess, json, os, tempfile
 from datetime import datetime
 from flask import current_app
-from flaskr.model import URL, WAF
+from flaskr.model import URL, WAF, User
 from flaskr import db, socketio
 from .send_email import send_mail
 
 waf_monitor_threads = {}  # {url_id: (thread, stop_event)}
+TOR_PROXIES =  os.getenv("SOCKS_PROXY", "socks5h://127.0.0.1:9050")
 
 def monitor_waf_for_url(url_id):
     stop_event = threading.Event()
     app = current_app._get_current_object()
     retry_count = 0
-    max_retries = 3
+    max_retries = 5
 
     def waf_monitor_task():
         nonlocal retry_count
@@ -34,6 +35,10 @@ def monitor_waf_for_url(url_id):
                         if item["detected"]:
                             waf_name = item["firewall"]
                             waf_manufacturer = item["manufacturer"]
+                            # Bỏ qua các waf không xác định được (Generic)
+                            if waf_name.lower() == "generic" and waf_manufacturer.lower() == "unknown":
+                                print(f"Bỏ qua WAF 'Generic' với vendor 'Unknown' cho URL {url_obj.url}")
+                                continue
                             if waf_name not in existing_waf_names:
                                 # Thêm WAF mới vào cơ sở dữ liệu
                                 new_waf = WAF(
@@ -55,11 +60,26 @@ def monitor_waf_for_url(url_id):
                         # Nếu sau max_retries mà WAF vẫn offline, cập nhật trạng thái và gửi email
                         if retry_count >= max_retries:
                             waf.status = False
+                            from ..monitor import add_alert
+                            alert_id = add_alert(
+                                url_id=url_id,
+                                alert_type='waf_offline',
+                                title=f'WAF { waf.id } đã offline',
+                                content=f"WAF { waf.name } của URL { url_obj.url } đã offline!"
+                            )
                             db.session.commit()
                             print(f"WAF {waf.name} đã offline cho URL {url_id} sau {max_retries} lần thử.")
+                            socketio.emit('notification_push', {
+                                'alert_id': alert_id,
+                                'url_id': url_id,
+                                'url': URL.query.filter_by(id=url_id).first().url,
+                                'alert_type': 'waf_offline',
+                                'title': f'WAF { waf.id } đã offline',
+                                'content': f"WAF { waf.name } của URL { url_obj.url } đã offline!" 
+                            })
                             send_mail(
                                 subject=f"WAF {waf.name} đã offline",
-                                recipients=['nqdung19082002@gmail.com'],
+                                recipients=[user.username for user in User.query.all()],
                                 template='mail/email_waf_down.html',
                                 title=f"WAF {waf.name} của URL {url_id} đã offline",
                                 url=url_obj.url
@@ -103,10 +123,15 @@ def start_monitoring_waf():
 
 def detect_waf(url):
     try:
-        cmd = ["wafw00f", url, "-o", "waf.json", "-a"]
-        subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
-        with open('waf.json', "r", encoding="utf-8") as f:
+        # Tạo tệp temp để wafw00f lưu ra kết quả
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp_file:
+            temp_file_path = temp_file.name
+        cmd = ["wafw00f", url, "-o", temp_file_path, "-p", TOR_PROXIES]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        with open(temp_file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        import os
+        os.remove(temp_file_path)
         if not data:
             print(f"Không tìm thấy WAF của { url }")
             return []

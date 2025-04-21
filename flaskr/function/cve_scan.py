@@ -1,9 +1,5 @@
-import json
-import time
-import sys
-import subprocess
+import json, time, sys, subprocess, platform
 from pathlib import Path
-
 from tqdm import tqdm
 from packaging.version import Version
 from whoosh import index
@@ -109,7 +105,6 @@ def create_cve_index(targets):
         else:
             # Xóa các file cũ trong thư mục index
             for file in TARGET_DIR.iterdir():
-                subprocess.run(["attrib", "-r", str(file)], check=True, shell=True)
                 file.unlink()
             ix = index.create_in(str(TARGET_DIR), schema)
         

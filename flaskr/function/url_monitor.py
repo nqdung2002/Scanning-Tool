@@ -1,16 +1,14 @@
-import requests, uuid, logging, os, json
-import subprocess
+import requests, uuid, logging, os
 from flaskr import create_app
 from datetime import datetime
 from flaskr import socketio, db
 from flaskr.function.send_email import send_mail
 from requests.adapters import HTTPAdapter, Retry
+from flaskr.model import URL, User
 
 LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../log'))
-TOR_PROXIES = {
-    'http': 'socks5h://localhost:9050',
-    'https': 'socks5h://localhost:9050'
-}
+SOCKS = os.getenv("SOCKS_PROXY", "socks5h://localhost:9050")
+TOR_PROXIES = {'http': SOCKS, 'https': SOCKS}
 
 # Log lỗi khi kiểm tra status
 logger = logging.getLogger("connection_error")
@@ -27,7 +25,7 @@ def create_session_with_retries():
     retries = Retry(
         total=2,              # Số lần thử lại
         backoff_factor=1,     # Tăng dần thời gian chờ giữa các lần retry
-        status_forcelist=[429, 500, 502, 503, 504]
+        status_forcelist=list(range(400, 600))
     )
     adapter = HTTPAdapter(max_retries=retries)
     session.mount('http://', adapter)
@@ -49,7 +47,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
 
     while not stop_event.is_set():
         try:
-            response = session.get(url, timeout=15)
+            response = session.get(url, timeout=30)
             current_status = response.status_code
 
             if current_status in [301, 302]:
@@ -85,17 +83,31 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                 "monitoring_active": monitoring_active
             })
             print(f"Lỗi khi kiểm tra {url}: {e}")
-            if err_count >= 2:
+            if err_count > 0:
                 socketio.emit('error', {'message': f"Lỗi khi kiểm tra {url}: {e}"})
                 logger.error(f"Lỗi khi kiểm tra {url}: {e}")
                 if url_id is not None and app is not None:
                     try:
                         with app.app_context():
-                            from flaskr.model import URL
+                            from flaskr.monitor import add_alert
                             url_obj = URL.query.get(url_id)
                             if url_obj:
                                 url_obj.monitoring_active = False
+                                alert_id = add_alert(
+                                    url_id=url_id,
+                                    alert_type='url_offline',
+                                    title=f"Mất kết nối với URL { url_id }",
+                                    content=f"Mất kết nối với url { url_obj.url }. Vui lòng kiểm tra."
+                                )
                                 db.session.commit()
+                                socketio.emit('notification_push', {
+                                    'alert_id': alert_id,
+                                    'url_id': url_id,
+                                    'url': URL.query.filter_by(id=url_id).first().url,
+                                    'alert_type': 'url_offline',
+                                    'title': f"Mất kết nối với URL { url_id }",
+                                    'content': f"Mất kết nối với url { url_obj.url }. Vui lòng kiểm tra." 
+                                })
                                 socketio.emit(emit_event, {
                                     'url_id': temp_id,
                                     'url': url,
@@ -105,7 +117,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                                 })
                                 send_mail(
                                     subject="Mất kết nối với URL.",
-                                    recipients=['nqdung19082002@gmail.com'],
+                                    recipients=[user.username for user in User.query.all()],
                                     template='mail/email_url_down.html',
                                     title="Mất kết nối với URL.",
                                     url=url,
@@ -117,7 +129,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                 stop_event.set()
         if stop_event.is_set():
             break
-        if stop_event.wait(20): # Thời gian chờ giữa các vòng lặp
+        if stop_event.wait(60): # Thời gian chờ giữa các vòng lặp
             break
     
     

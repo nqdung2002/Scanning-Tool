@@ -7,10 +7,24 @@
 <div class="container d-flex flex-column align-items-center justify-content-center">
     <!-- Form nhập URL để quét -->
     <form id="scan-form" class="form-inline p-1">
-        <label for="url">URL</label>
-        <input id="url" name="url" required>
-        <input id="start-button" type="submit" value="Scan">
+        <div class="input-group mb-3">
+            <input id="url" name="url" type="text" required placeholder="URL" class="form-control" aria-label="Recipient's username" aria-describedby="button-addon2">
+            <input class="btn btn-outline-secondary" type="submit" value="Scan">
+        </div>
     </form>
+
+    <!-- Form add nhanh URL -->
+    <form id="quick-add-form" class="form-inline p-1">
+        <div class="input-group mb-3">
+            <input type="file" class="form-control" id="urlFile" accept=".txt">
+            <input class="btn btn-outline-secondary" type="submit" value="Thêm nhanh vào danh sách monitor">
+        </div>
+    </form>
+
+    <!-- Thanh trạng thái add nhanh url -->
+    <div class="progress my-3 w-75" style="display: none;" id="quickAddProgressBar">
+        <div id="globalProgressBar" class="progress-bar d-flex align-items-center justify-content-center" role="progressbar" style="width:0%;">0%</div>
+    </div>
 
     <!-- Hiển thị trạng thái đang quét -->
     <div id="loading" style="display: none;" class="p-1">
@@ -44,8 +58,15 @@
         console.error('Lỗi nhận được:', data.message);
         alert(data.message);  // Hiển thị thông báo lỗi
     });
+    
+    // Lắng nghe sự kiện progress
+    socket.on('global_progress', function(data) {
+        const bar = document.getElementById('globalProgressBar');
+        bar.style.width = data.progress + '%';
+        bar.innerText = Math.round(data.progress) + '%';
+    });
 
-    // Xử lý form submit
+    // Xử lý form scan submit
     document.getElementById("scan-form").addEventListener("submit", function(event) {
         event.preventDefault(); // Ngăn form reload trang
 
@@ -54,7 +75,7 @@
         let resultsContainer = document.getElementById("scan-results");
 
         if (!urlInput) {
-            alert("Vui lòng nhập URL hợp lệ!");
+            alert("Vui lòng nhập URL!");
             return;
         }
 
@@ -79,15 +100,24 @@
         });
     });
 
+    // Xử lý form quick add submit
+    document.getElementById("quick-add-form").addEventListener("submit", function(event) {
+        event.preventDefault(); // Ngăn form reload trang
+        document.getElementById("quickAddProgressBar").style.display = "block";
+
+        const formData = new FormData();
+        formData.append("file", document.getElementById("urlFile").files[0]);
+
+        fetch("/quick_add_to_monitor", {
+            method: "POST",
+            body: formData
+        })
+    });
+
     // Hàm xử lý khi submit vuln scan
     function submitTechScanForm() {
         // Kiểm tra đã chọn checkbox nào chưa
         let selectedCheckboxes = document.querySelectorAll(".tech-check:checked");
-        if (selectedCheckboxes.length === 0) {
-            alert("Vui lòng chọn ít nhất một công nghệ để quét.");
-            return;
-        }
-
         let tableContainer = document.getElementById("table-content");
         let resultsContainer = document.getElementById("vuln-scan-result");
 

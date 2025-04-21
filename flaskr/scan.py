@@ -1,9 +1,5 @@
-import subprocess
-import json
-import os
-import threading
-import time
-from flask import Blueprint, flash, render_template, request, jsonify
+import subprocess, json, os, threading, tempfile
+from flask import Blueprint, flash, render_template, request, jsonify, current_app
 from flaskr.auth import login_required
 from flaskr import socketio
 from flaskr.function.nuclei_scan import check_template_available, run_nuclei, analyze_results
@@ -11,9 +7,9 @@ from flaskr.function.cpe_scan import search_cpe
 from flaskr.function.cve_scan import create_cve_list
 from flaskr.function.url_monitor import check_url_status
 from flaskr.function.waf_monitor import detect_waf
+from concurrent.futures import ThreadPoolExecutor
 
 bp = Blueprint('scan', __name__)
-LOG_FILE = "log.json"  
 
 # Biến toàn cục dùng cho việc scan
 current_scan_thread = None
@@ -28,20 +24,12 @@ list_wafs = []
 def tech_scan():
     global url_status, current_scan_thread, scan_stop_event, scanning_url, list_wafs
     results = None
-    list_wafs = []
 
     if request.method == 'POST':
         scanning_url = request.form.get('url').strip()
         if scanning_url:
             # Check có waf không
-            try:
-                waf_results = detect_waf(scanning_url)
-                if waf_results:
-                    for item in waf_results:
-                        if item["detected"] == True:
-                            list_wafs.append((item["manufacturer"], item["firewall"]))
-            except subprocess.SubprocessError as e:
-                print(f"Có lỗi xảy ra với wafw00f: { e }")
+            list_wafs = check_waf(scanning_url)
 
             # Nếu có thread scan cũ đang chạy thì dừng nó
             if current_scan_thread and current_scan_thread.is_alive():
@@ -49,24 +37,7 @@ def tech_scan():
                 current_scan_thread.join()
                 print("Đã kết thúc thread scan cũ")
             scan_stop_event = threading.Event()
-            retries = 0
-            try:
-                # Chạy Wappalyzer để quét công nghệ
-                cmd = ["wappalyzer", "-i", scanning_url, "-oJ", LOG_FILE]
-                subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
-
-                if os.path.exists(LOG_FILE):
-                    with open(LOG_FILE, "r", encoding="utf-8") as f:
-                        results = json.load(f)
-                    with open(LOG_FILE, "w", encoding="utf-8") as f:
-                        f.write(json.dumps(results, indent=4))
-                    print("Quét thành công")
-                else:
-                    flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
-                    print("Không thể tạo log.json. Kiểm tra Wappalyzer.")
-            except subprocess.CalledProcessError as e:
-                retries += 1
-                print(f"Lỗi khi quét: {e}")
+            results = check_tech(scanning_url)
             
             # Khởi động thread theo dõi trạng thái URL (với url_id=None vì URL chưa có trong DB)
             try:
@@ -84,6 +55,44 @@ def tech_scan():
 
     return render_template('scan/tech-scan.html', results=results, url_status=url_status, url=scanning_url)
 
+def check_waf (url):
+    list_wafs = []
+    try:
+        print(f"Bắt đầu check WAF của { url }")
+        waf_results = detect_waf(url)
+        if waf_results:
+            for item in waf_results:
+                if item["detected"] == True:
+                    waf_name = item["firewall"]
+                    waf_manufacturer = item["manufacturer"]
+                    if waf_name.lower() == "generic" and waf_manufacturer.lower() == "unknown":
+                        list_wafs.append((item["manufacturer"], item["firewall"]))
+    except subprocess.SubprocessError as e:
+        print(f"Có lỗi xảy ra với wafw00f: { e }")
+    return list_wafs
+
+def check_tech(url):
+    results = None
+    retries = 0
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp_file:
+            temp_file_path = temp_file.name
+        cmd = ["wappalyzer", "-i", url, "-oJ", temp_file]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+        if os.path.exists(temp_file):
+            with open(temp_file, "r", encoding="utf-8") as f:
+                results = json.load(f)
+            os.remove(temp_file) # Xóa sau khi sử dụng
+            print("Quét thành công")
+        else:
+            flash("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+            print("Không thể tạo log.json. Kiểm tra Wappalyzer.")
+    except subprocess.CalledProcessError as e:
+        retries += 1
+        print(f"Lỗi khi quét: {e}")
+    return results
+
 # endpoint để dừng kiểm tra status thủ công trên giao diện
 @bp.route('/stop-status', methods=['POST'])
 @login_required
@@ -93,16 +102,15 @@ def stop_status():
     print("Đã dừng thread scan")
     return jsonify(success=True)
 
-@bp.route('/cpe-check', methods=['GET', 'POST'])
+@bp.route('/cpe-check', methods=['POST'])
 def cpe_scan():
     cpe_list = []
-    if request.method == 'POST':
-        selected = request.json
-        for tech_info in selected:
-            tech = tech_info.get('tech')
-            version = tech_info.get('version')
-            cpe_result = search_cpe(tech, version, 5)
-            cpe_list.append((tech, version, cpe_result))
+    selected = request.json
+    for tech_info in selected:
+        tech = tech_info.get('tech')
+        version = tech_info.get('version')
+        cpe_result = search_cpe(tech, version, 5)
+        cpe_list.append((tech, version, cpe_result))
     return render_template('scan/cpe-scan.html', results=cpe_list)
 
 @bp.route('/cve-search', methods=['GET', 'POST'])
@@ -157,3 +165,132 @@ def nuclei_scan(cves, scanning_url):
             "status": "Không tìm thấy template",
         }
     return results
+
+# Biến kiểm soát tiến trình
+step_lock = threading.Lock()
+curr_step = 0
+steps_per_url = 4
+total_steps = 0
+
+@bp.route('/quick_add_to_monitor', methods=['POST'])
+def quick_add():
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    urls = file.read().decode('utf-8').splitlines()
+
+    # Khởi tạo tổng số step và reset số step hiện tại
+    global current_step, total_steps
+    current_step = 0
+    total_steps   = len(urls) * steps_per_url
+
+    # Sử dụng ThreadPoolExecutor để xử lý song song
+    results = []
+    app = current_app._get_current_object()
+    with ThreadPoolExecutor(max_workers=5) as executor:  # Tùy chỉnh số lượng luồng (max_workers)
+        futures = [executor.submit(process_url, url, app) for url in urls]
+        for future in futures:
+            results.append(future.result())
+    print(f">>>>>>>>>> Hoàn thành thêm {len(urls)} vào danh sách monitoring!!! <<<<<<<<<<")
+    return jsonify({"message": "Processing completed", "results": results}), 200
+
+def report_step():
+    global current_step, total_steps
+    with step_lock:
+        current_step += 1
+        pct = round(current_step / total_steps * 100, 2)
+    socketio.emit('global_progress', {'progress': pct})
+
+def process_url(url, app):
+    url = url.strip()
+    if not url:
+        return {"url": url, "error": "URL is empty"}
+
+    print(f"Target: {url}")
+
+    with app.app_context():
+        try:
+            # 1. Lấy WAF
+            print(f"----------1. Lấy Waf-----------")
+            list_wafs = check_waf(url)
+            report_step()
+
+            # 2. Lấy tech bằng wappalyzer
+            print(f"----------2. Tìm công nghệ-----------")
+            list_techs = check_tech(url)
+            tech_with_versions = []
+            for tech, details in list_techs.get(url, {}).items():
+                if details.get('version'):
+                    tech_with_versions.append([tech, details['version']])
+            report_step()
+
+            # 3. Lấy CPE và CVE
+            print(f"----------3. Tìm CPE và CVE-----------")
+            results = []
+            for tech, version in tech_with_versions:
+                try:
+                    cpe_obj = search_cpe(tech, version, 1)
+                except Exception as e:
+                    print(f"Lỗi khi tìm CPE: {e}")
+                    continue
+                if not cpe_obj:
+                    continue
+                _, cpe, _ = cpe_obj[0]
+
+                raw_cves = create_cve_list(cpe, version, 100)
+                formatted_cves = []
+                for item in raw_cves:
+                    if isinstance(item, dict):
+                        formatted_cves.append(item)
+                    else:
+                        (cve, cwe, desc, vec, baseScore,
+                        baseSeverity, explScore, impScore, *rest) = item + (None,) * (9 - len(item))
+                        formatted_cves.append({
+                            "cve": cve,
+                            "cwe": cwe,
+                            "description": desc,
+                            "vectorString": vec,
+                            "baseScore": baseScore,
+                            "baseSeverity": baseSeverity,
+                            "exploitabilityScore": explScore,
+                            "impactScore": impScore,
+                            "nucleiResult": None
+                        })
+
+                # 4. Lấy danh sách Nuclei
+                cve_ids = [e["cve"] for e in formatted_cves]
+                nuclei_results = nuclei_scan(cve_ids, url)
+                for entry in formatted_cves:
+                    entry["nucleiResult"] = (
+                        nuclei_results.get(entry["cve"], {}).get("status", "Không tìm thấy template")
+                    )
+
+                # 5. Chuẩn hóa dữ liệu
+                results.append({
+                    "tech": tech,
+                    "version": version,
+                    "cpe": cpe,
+                    "cves": formatted_cves
+                })
+
+            # Chuẩn bị dữ liệu để gọi add_to_database
+            data = {
+                "url": url,
+                "results": results,
+                "wafs": list_wafs
+            }
+            report_step()
+
+            # 6. Gọi hàm add_to_database() từ monitor.py
+            from flaskr.monitor import add_to_database
+            print("Bắt đầu thêm vào cơ sở dữ liệu")
+            response = add_to_database(data)
+            print(response)
+            report_step()
+
+            return {"url": url, "status": "success"}
+
+        except Exception as e:
+            print(f"Đã xảy ra lỗi khi xử lý URL {url}: {e}")
+            return {"url": url, "error": str(e)}

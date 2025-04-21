@@ -1,9 +1,10 @@
 import threading
 import json
+from flask import g
 from flaskr import create_app
-from flask import Blueprint, current_app, render_template, request, jsonify
+from flask import Blueprint, current_app, render_template, request, jsonify, session as ses
 from flaskr.auth import login_required
-from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech, Alerts, WAF
+from flaskr.model import URL, CVE, Tech, Tech_CVE, URL_Tech, Alerts, WAF, User
 from flaskr import db, socketio
 from .function.send_email import send_mail
 from flaskr.function.url_monitor import check_url_status
@@ -42,11 +43,14 @@ def start_watchlist_threads():
 @bp.route('/add_to_watchlist', methods=['POST'])
 @login_required
 def add_to_watchlist():
-    global monitor_threads
     data = request.json
+    response, status_code = add_to_database(data)
+    return response, status_code
+    
+def add_to_database(data):
+    global monitor_threads
     url = data.get('url')
     url_id = add_url(url)
-    print(url_id)
     try:
         for result in data.get('results'):
             # Lấy tech
@@ -83,6 +87,7 @@ def add_to_watchlist():
         db.session.rollback()
         print(f"lỗi ồiiii: {e}")
         return "Lỗi òi", 500
+
     
 @bp.route('/remove_from_watchlist', methods=['POST'])
 @login_required
@@ -105,6 +110,7 @@ def stop_monitor(url_id):
 @login_required
 def start_monitor(url_id):
     url_obj = URL.query.get(url_id)
+    user_id = ses['user_id']
     if url_obj and url_id not in monitor_threads:
         url_obj.monitoring_active = True
         db.session.commit()
@@ -351,7 +357,7 @@ def manual_scan(url_id):
     
         # Gửi email khi phát hiện cve mới
         subject = title
-        recipients=['nqdung19082002@gmail.com']
+        recipients=[user.username for user in User.query.all()]
         send_mail(
             subject=subject,
             recipients=recipients,
@@ -390,7 +396,7 @@ def manual_scan(url_id):
 
         # Gửi email khi phát hiện cve được chỉnh sửa
         subject = title
-        recipients=['nqdung19082002@gmail.com']
+        recipients=[user.username for user in User.query.all()]
         send_mail(
             subject=subject,
             recipients=recipients,
@@ -461,7 +467,7 @@ def auto_scan():
                 
                 # Gửi email khi phát hiện cve mới
                 subject = title
-                recipients=['nqdung19082002@gmail.com']
+                recipients=[user.username for user in User.query.all()]
                 send_mail(
                     subject=subject,
                     recipients=recipients,
@@ -499,7 +505,7 @@ def auto_scan():
                 
                 # Gửi email khi phát hiện cve được chỉnh sửa
                 subject = title
-                recipients=['nqdung19082002@gmail.com']
+                recipients=[user.username for user in User.query.all()]
                 send_mail(
                     subject=subject,
                     recipients=recipients,
