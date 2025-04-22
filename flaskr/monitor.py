@@ -433,7 +433,6 @@ def set_is_read(alert_id):
 #####################################################################################
 def auto_scan():
     try:
-        from flask import current_app
         app = current_app._get_current_object()
     except RuntimeError:
         app = create_app()

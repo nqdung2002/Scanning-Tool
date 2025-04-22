@@ -66,7 +66,9 @@ def check_waf (url):
                     waf_name = item["firewall"]
                     waf_manufacturer = item["manufacturer"]
                     if waf_name.lower() == "generic" and waf_manufacturer.lower() == "unknown":
-                        list_wafs.append((item["manufacturer"], item["firewall"]))
+                        print(f"Bỏ qua WAF 'Generic' với vendor 'Unknown'")
+                        continue
+                    list_wafs.append(waf_manufacturer, waf_name)
     except subprocess.SubprocessError as e:
         print(f"Có lỗi xảy ra với wafw00f: { e }")
     return list_wafs

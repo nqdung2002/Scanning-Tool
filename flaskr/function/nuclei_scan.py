@@ -3,21 +3,34 @@ import os
 import json
 from pathlib import Path
 
-template_folder_path = Path(__file__).resolve().parent.parent.parent / "nuclei-templates/http"
+template_folder_path = Path(__file__).resolve().parent.parent.parent / "nuclei-templates/http/cves"
 
 def check_template_available(cves):
     available_templates = []
     missing_templates = []
-    
+
     for cve in cves:
-        template_name = f"{cve}.yaml"
-        found = False
-        for file in template_folder_path.rglob(template_name):
-            available_templates.append(cve)
-            found = True
-        if not found:
+        # Trích xuất năm từ CVE
+        try:
+            year = cve.split('-')[1]
+        except IndexError:
             missing_templates.append(cve)
-    
+            continue
+
+        year_folder = template_folder_path / year
+        # Kiểm tra nếu thư mục năm tồn tại
+        if not year_folder.exists():
+            missing_templates.append(cve)
+            continue
+
+        # Tìm file template trong thư mục năm
+        template_name = f"{cve}.yaml"
+        template_path = year_folder / template_name
+        if template_path.exists():
+            available_templates.append(cve)
+        else:
+            missing_templates.append(cve)
+
     return available_templates, missing_templates
 
 def run_nuclei(url, available_templates, output_file):
@@ -27,8 +40,9 @@ def run_nuclei(url, available_templates, output_file):
         template = f"cves/{year}/{cve}.yaml"
         templates.append(template)
     try:
+        # Thêm flag -system-resolvers nếu chạy trên website nội bộ
         result = subprocess.run(
-            ["nuclei", "-u", url, "-t", ",".join(templates), "-j", "-o", output_file, "-system-resolvers"],
+            ["nuclei", "-u", url, "-t", ",".join(templates), "-j", "-o", output_file],
             capture_output=True,
             text=True,
             check=True
