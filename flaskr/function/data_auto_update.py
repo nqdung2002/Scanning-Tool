@@ -5,9 +5,8 @@ import time
 import logging
 import subprocess
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
-
 from .data_download import modified_recent_pull, complete_pull
 from .cve_scan import indexing_modified_recent_cve, indexing_full_cve
 from .cpe_scan import indexing_cpe
@@ -180,7 +179,7 @@ def start_scheduler():
 
 
     # Cấu hình scheduler (không dùng persistent job store của APScheduler)
-    executors = {'default': ThreadPoolExecutor(1)}
+    executors = {'default': ProcessPoolExecutor(1)}
     scheduler = BackgroundScheduler(executors=executors, timezone=gmt7)
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
     scheduler.start()

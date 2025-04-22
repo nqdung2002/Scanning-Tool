@@ -164,7 +164,6 @@ def nuclei_scan(cves, scanning_url):
         results[cve] = {
             "status": "Không tìm thấy template",
         }
-    os.remove(output_file)
     return results
 
 # Biến kiểm soát tiến trình

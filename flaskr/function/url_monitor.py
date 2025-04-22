@@ -83,7 +83,7 @@ def check_url_status(url, stop_event, url_id=None, monitoring_active=None, emit_
                 "monitoring_active": monitoring_active
             })
             print(f"Lỗi khi kiểm tra {url}: {e}")
-            if err_count > 0:
+            if err_count > 3:
                 socketio.emit('error', {'message': f"Lỗi khi kiểm tra {url}: {e}"})
                 logger.error(f"Lỗi khi kiểm tra {url}: {e}")
                 if url_id is not None and app is not None:

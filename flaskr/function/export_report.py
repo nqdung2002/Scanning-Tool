@@ -1,6 +1,7 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -37,6 +38,13 @@ def export_pdf():
     style_heading.alignment = TA_CENTER
     style_heading.spaceAfter = 20
     total_severity_count = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    table_paragraph_style = ParagraphStyle(
+        name="TableParagraph",
+        fontName="Roboto",
+        fontSize=12,
+        leading=14,  # Khoảng cách giữa các dòng
+        alignment=0  # Căn trái
+    )
 
     # Xuất báo cáo tổng hợp CVE
     if mode == '1':
@@ -186,7 +194,7 @@ def export_pdf():
                             table_data.append([
                                 alert.id,
                                 alert.alert_type,
-                                alert.title,
+                                Paragraph(alert.title, table_paragraph_style),
                                 alert.notified_at.strftime("%d-%m-%Y %H:%M:%S")
                             ])
 
